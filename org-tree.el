@@ -40,6 +40,7 @@
     (define-key map (kbd "C-i") #'org-tree-cycle)
     (define-key map (kbd "<tab>") #'org-tree-cycle)
     (define-key map (kbd "<backtab>") #'org-tree-unfold)
+    (define-key map (kbd "q") #'quit-window)
     (make-composed-keymap map)))
 
 ;;;###autoload
@@ -74,7 +75,8 @@
       (narrow-to-region min (point-max))
       (org-show-branches-buffer))
     (pop-to-buffer tree-buffer
-                   '(display-buffer-in-atom-window
+                   '(display-buffer-in-side-window
+                     tree-buffer
                      (side . left)))))
 
 (defun org-tree-jump ()
