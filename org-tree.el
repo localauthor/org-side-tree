@@ -89,8 +89,9 @@
          (tree-window (get-buffer-window tree-buffer))
          (base-buffer (buffer-base-buffer))
          (base-window (get-buffer-window base-buffer)))
-    (select-window base-window)
-    (switch-to-buffer base-buffer)
+    (if base-window
+        (select-window base-window)
+      (switch-to-buffer base-buffer))
     (when (org-buffer-narrowed-p)
       (org-toggle-narrow-to-subtree))
     (goto-char pos)
