@@ -82,7 +82,9 @@
 (defun org-tree-jump ()
   "Jump to heading in base buffer."
   (interactive)
-  (let* ((pos (point))
+  (let* ((pos (progn (unless (org-at-heading-p)
+                       (org-previous-visible-heading 1))
+                     (point)))
          (tree-buffer (current-buffer))
          (tree-window (get-buffer-window tree-buffer))
          (base-buffer (buffer-base-buffer))
