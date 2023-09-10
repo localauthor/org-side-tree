@@ -106,14 +106,28 @@
 (defun org-tree-next ()
   "Move to next heading."
   (interactive)
-  (org-speed-move-safe 'org-next-visible-heading)
-  (org-tree-jump))
+  (if (string-match "^<tree>.*"
+                    (buffer-name (current-buffer)))
+      (progn
+        (org-speed-move-safe 'org-next-visible-heading)
+        (org-tree-jump))
+    (org-toggle-narrow-to-subtree)
+    (org-next-visible-heading 1)
+    (org-narrow-to-subtree)))
 
 (defun org-tree-previous ()
   "Move to previous heading."
   (interactive)
-  (org-speed-move-safe 'org-previous-visible-heading)
-  (org-tree-jump))
+  (if (string-match "^<tree>.*"
+                    (buffer-name (current-buffer)))
+      (progn
+        (org-speed-move-safe 'org-previous-visible-heading)
+        (org-tree-jump))
+    (org-toggle-narrow-to-subtree)
+    (if (org-on-heading-p)
+        (org-previous-visible-heading 1)
+      (org-previous-visible-heading 2))
+    (org-narrow-to-subtree)))
 
 (defun org-tree-cycle ()
   "Cycle folding."
@@ -133,6 +147,12 @@
   "Unfold all branches."
   (interactive)
   (org-show-branches-buffer))
+
+(defun org-tree-fold ()
+  "Fold all branches."
+  (interactive)
+  (let ((org-cycle-separator-lines 0))
+    (org-cycle '(4))))
 
 (provide 'org-tree)
 ;;; org-tree.el ends here
