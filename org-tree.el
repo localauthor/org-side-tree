@@ -91,7 +91,7 @@
                      (point)))
          (tree-buffer (current-buffer))
          (tree-window (get-buffer-window tree-buffer))
-         (base-buffer (buffer-base-buffer))
+         (base-buffer (buffer-base-buffer tree-buffer))
          (base-window (get-buffer-window base-buffer)))
     (if base-window
         (select-window base-window)
@@ -115,9 +115,22 @@
       (progn
         (org-speed-move-safe 'org-next-visible-heading)
         (org-tree-jump))
-    (org-toggle-narrow-to-subtree)
+    (widen)
     (org-next-visible-heading 1)
-    (org-narrow-to-subtree)))
+    (let* ((tree-buffer (get-buffer (concat
+                                     "<tree>"
+                                     (buffer-name (current-buffer)))))
+           (tree-window (get-buffer-window tree-buffer))
+           (base-buffer (buffer-base-buffer tree-buffer))
+           (base-window (get-buffer-window base-buffer))
+           (pos (point)))
+      (when tree-window
+        (select-window tree-window)
+        (goto-char pos)
+        (hl-line-highlight)
+        (select-window base-window)))
+    (if org-tree-narrow-on-jump
+        (org-narrow-to-subtree))))
 
 (defun org-tree-previous ()
   "Move to previous heading."
@@ -127,11 +140,22 @@
       (progn
         (org-speed-move-safe 'org-previous-visible-heading)
         (org-tree-jump))
-    (org-toggle-narrow-to-subtree)
-    (if (org-on-heading-p)
-        (org-previous-visible-heading 1)
-      (org-previous-visible-heading 2))
-    (org-narrow-to-subtree)))
+    (widen)
+    (org-previous-visible-heading 1)
+    (let* ((tree-buffer (get-buffer (concat
+                                     "<tree>"
+                                     (buffer-name (current-buffer)))))
+           (tree-window (get-buffer-window tree-buffer))
+           (base-buffer (buffer-base-buffer tree-buffer))
+           (base-window (get-buffer-window base-buffer))
+           (pos (point)))
+      (when tree-window
+        (select-window tree-window)
+        (goto-char pos)
+        (hl-line-highlight)
+        (select-window base-window)))
+    (if org-tree-narrow-on-jump
+        (org-narrow-to-subtree))))
 
 (defun org-tree-cycle ()
   "Cycle folding."
