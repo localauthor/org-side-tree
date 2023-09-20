@@ -43,6 +43,9 @@
     (define-key map (kbd "q") #'quit-window)
     (make-composed-keymap map)))
 
+(defcustom org-tree-narrow-on-jump t
+  "When non-nil, source buffer is narrowed to subtree.")
+
 ;;;###autoload
 (defun org-tree ()
   "Create `org-tree' buffer."
@@ -98,7 +101,8 @@
     (goto-char pos)
     (org-fold-show-entry)
     (org-fold-show-subtree)
-    (org-narrow-to-element)
+    (when org-tree-narrow-on-jump
+      (org-narrow-to-element))
     (when (or (eq this-command 'org-tree-next)
               (eq this-command 'org-tree-previous))
       (select-window tree-window))))
