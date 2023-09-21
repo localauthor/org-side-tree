@@ -65,6 +65,7 @@
 
 ;;;###autoload
 (defun org-tree ()
+  ;; FIX: if called when narrowed, doesn't fontify
   "Create Org-Tree buffer."
   (interactive)
   (when (org-tree-buffer-p)
@@ -76,10 +77,12 @@
          (heading (org-no-properties (org-get-heading t))))
     (unless (buffer-live-p tree-buffer)
       (setq tree-buffer (generate-new-buffer tree-name))
+      (jit-lock-mode 1)
+      (jit-lock-fontify-now)
       (let* ((headings (org-tree--headings))
              (tree-mode-line (format "Org-Tree - %s"
                                      (file-name-nondirectory buffer-file-name))))
-        (add-hook 'after-save-hook #'org-tree--update nil t)
+        (add-hook 'after-change-functions #'org-tree-live-update nil t)
         (with-current-buffer tree-buffer
           (org-tree-mode)
           (setq tabulated-list-entries headings)
@@ -88,7 +91,8 @@
           (setq mode-line-format tree-mode-line))))
     (pop-to-buffer tree-buffer)
     (goto-char (point-min))
-    (re-search-forward heading nil t)
+    (when heading
+      (re-search-forward heading nil t))
     (beginning-of-line)
     (hl-line-highlight)))
 
@@ -106,8 +110,6 @@
       (setq narrow-beg (point-min-marker)
             narrow-end (point-max-marker))
       (widen))
-    (jit-lock-mode 1)
-    (jit-lock-fontify-now)
     (save-excursion
       (goto-char (point-min))
       (while (re-search-forward heading-regexp nil t)
@@ -128,79 +130,30 @@
       (user-error "No headings"))
     (nreverse headings)))
 
-(defun org-tree--update ()
-  "Update Org-Tree buffer."
-  (setq this-command 'org-tree--update)
+(defun org-tree-live-update (_1 _2 _3)
+  "Update headings."
   (let ((tree-buffer (get-buffer
                       (format "<tree>%s"
                               (buffer-name))))
         (heading (org-get-heading t))
-        headings)
-    (if tree-buffer
-        (progn
-          (setq headings (org-tree--headings))
-          (with-current-buffer tree-buffer
-            (setq tabulated-list-entries headings)
-            (tabulated-list-print t t)
-            (goto-char (point-min))
-            (re-search-forward heading)
-            (beginning-of-line)
-            (hl-line-highlight)))
-      (remove-hook 'after-save-hook #'org-tree--update t))))
-
-(defun org-tree-live ()
-  "Update Org-Tree buffer."
-  ;; slow
-  ;; can't get the hook add/removal to work right
-  (interactive)
-  (let ((run-collect (make-symbol "run-collect"))
-        (stop-collect (make-symbol "stop-collect"))
         timer)
-    (setf (symbol-function stop-collect)
-          (lambda ()
-            (remove-hook 'after-change-functions run-collect t)))
-    (setf (symbol-function run-collect)
-          (lambda (_1 _2 _3)
-            (unless timer
-              (setq timer
-                    (run-with-idle-timer
-                     0.05 nil
-                     (lambda ()
-                       (let ((headings (org-tree--headings))
-                             (tree-buffer (get-buffer
-                                           (format "<tree>%s"
-                                                   (buffer-name)))))
-                         ;; (if (not (buffer-live-p tree-buffer))
-                         ;;     (funcall stop-collect)
-                         (with-current-buffer tree-buffer
-                           (setq tabulated-list-entries headings)
-                           ;; TODO figure out why I can't restore point
-                           (tabulated-list-print t t))
-                         (setq timer nil)
-                         )))))))
-    (add-hook 'after-change-functions run-collect nil t)))
-
-
-(defun org-tree-run-collect (_1 _2 _3)
-  (let (timer)
-    (unless timer
-      (setq timer
-            (run-with-idle-timer
-             0.05 nil
-             (lambda ()
-               (let ((headings (org-tree--headings))
-                     (tree-buffer (get-buffer
-                                   (format "<tree>%s"
-                                           (buffer-name)))))
-                 (if (not (buffer-live-p (get-buffer tree-buffer)))
-                     (remove-hook 'after-change-functions
-                                  'org-tree-run-collect t)
-                   (with-current-buffer tree-buffer
-                     (setq tabulated-list-entries headings)
-                     (tabulated-list-print t t))
-                   (setq timer nil)))))))))
-
-
+    (if tree-buffer
+        (unless timer
+          (setq timer
+                (run-with-idle-timer
+                 0.05 nil
+                 (lambda ()
+                   (let ((headings (org-tree--headings)))
+                     (with-current-buffer tree-buffer
+                       (setq tabulated-list-entries headings)
+                       (tabulated-list-print t t)
+                       (goto-char (point-min))
+                       (re-search-forward heading)
+                       (beginning-of-line)
+                       (hl-line-highlight))
+                     (setq timer nil))))))
+      (remove-hook 'after-change-functions
+                   #'org-tree-live-update t))))
 
 (defun org-tree-jump (&optional _)
   "Jump to headline."
