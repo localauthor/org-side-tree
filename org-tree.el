@@ -148,6 +148,60 @@
             (hl-line-highlight)))
       (remove-hook 'after-save-hook #'org-tree--update t))))
 
+(defun org-tree-live ()
+  "Update Org-Tree buffer."
+  ;; slow
+  ;; can't get the hook add/removal to work right
+  (interactive)
+  (let ((run-collect (make-symbol "run-collect"))
+        (stop-collect (make-symbol "stop-collect"))
+        timer)
+    (setf (symbol-function stop-collect)
+          (lambda ()
+            (remove-hook 'after-change-functions run-collect t)))
+    (setf (symbol-function run-collect)
+          (lambda (_1 _2 _3)
+            (unless timer
+              (setq timer
+                    (run-with-idle-timer
+                     0.05 nil
+                     (lambda ()
+                       (let ((headings (org-tree--headings))
+                             (tree-buffer (get-buffer
+                                           (format "<tree>%s"
+                                                   (buffer-name)))))
+                         ;; (if (not (buffer-live-p tree-buffer))
+                         ;;     (funcall stop-collect)
+                         (with-current-buffer tree-buffer
+                           (setq tabulated-list-entries headings)
+                           ;; TODO figure out why I can't restore point
+                           (tabulated-list-print t t))
+                         (setq timer nil)
+                         )))))))
+    (add-hook 'after-change-functions run-collect nil t)))
+
+
+(defun org-tree-run-collect (_1 _2 _3)
+  (let (timer)
+    (unless timer
+      (setq timer
+            (run-with-idle-timer
+             0.05 nil
+             (lambda ()
+               (let ((headings (org-tree--headings))
+                     (tree-buffer (get-buffer
+                                   (format "<tree>%s"
+                                           (buffer-name)))))
+                 (if (not (buffer-live-p (get-buffer tree-buffer)))
+                     (remove-hook 'after-change-functions
+                                  'org-tree-run-collect t)
+                   (with-current-buffer tree-buffer
+                     (setq tabulated-list-entries headings)
+                     (tabulated-list-print t t))
+                   (setq timer nil)))))))))
+
+
+
 (defun org-tree-jump (&optional _)
   "Jump to headline."
   (interactive)
