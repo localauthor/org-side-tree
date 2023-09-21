@@ -24,23 +24,29 @@
 
 ;;; Commentary:
 
+;; Navigate Org buffer via tree-outline in a side window.
+
+;; Inspired by and modeled on org-sidebar by @alphapapa. Implemented with
+;; code borrowings from `embark-live' in Embark by @oantolin and from Consult
+;; by @minad.
 
 ;;; Code:
 
 (require 'org)
-(require 'tabulated-list)
-(require 'hl-line)
 
-(defvar-keymap org-tree-mode-map
-  :parent special-mode-map
-  :doc "Keymap for `org-tree-mode'."
-  "<return>" #'push-button
-  "n" #'org-tree-next-heading
-  "p" #'org-tree-previous-heading)
+(defvar org-tree-mode-map
+  (let ((map (make-sparse-keymap)))
+    (define-key map (kbd "<return>") #'push-button)
+    (define-key map (kbd "<mouse-1>") #'push-button)
+    (define-key map (kbd "n") #'org-tree-next-heading)
+    (define-key map (kbd "p") #'org-tree-previous-heading)
+    (make-composed-keymap map special-mode-map))
+  "Keymap for `org-tree-mode'.")
 
 (define-derived-mode org-tree-mode tabulated-list-mode "Org-Tree"
-  "Mode for `org-tree'."
-  ;;\\{org-tree-mode-map}"
+  "Mode for `org-tree'.
+
+\\{org-tree-mode-map}"
   (hl-line-mode)
   (setq-local cursor-type 'bar)
   (setq tabulated-list-format [("Tree" 100)])
@@ -53,82 +59,98 @@
   'help-echo nil)
 
 (defcustom org-tree-narrow-on-jump t
-  "When non-nil, source buffer is narrowed to subtree.")
+  "When non-nil, source buffer is narrowed to subtree."
+  :group 'org-tree
+  :type 'boolean)
 
 ;;;###autoload
 (defun org-tree ()
-  ;; FIX: put cursor on relevant heading, not point-min
   "Create Org-Tree buffer."
   (interactive)
-  (when (string-match "^<tree>.*" (buffer-name))
+  (cond
+   ((org-tree-buffer-p)
     (error "Don't tree a tree"))
-  (unless (derived-mode-p 'org-mode)
+   ((not (derived-mode-p 'org-mode))
     (error "Not an org buffer"))
-  (jit-lock-mode 1)
-  (jit-lock-fontify-now)
-  (let* ((headings (org-tree--headings))
-         (tree-name (format "<tree>%s" (buffer-name)))
-         (tree-buffer (or (get-buffer tree-name)
-                          (generate-new-buffer tree-name)))
-         (tree-mode-line (format "Org-Tree - %s"
-                                 (file-name-nondirectory buffer-file-name))))
-    (add-hook 'after-save-hook 'org-tree--update nil t)
-    (with-current-buffer tree-buffer
-      (org-tree-mode)
-      (setq tabulated-list-entries headings)
-      (tabulated-list-print t t)
-      (set-window-fringes (get-buffer-window tree-buffer) 1 1)
-      (setq mode-line-format tree-mode-line))
-    (pop-to-buffer tree-buffer)))
-
-(defun org-tree--headings ()
-  "Return a list of outline headings."
-  (interactive)
-  (let* ((heading-regexp (concat "^\\(?:"
-                                 org-outline-regexp
-                                 "\\)"))
-         (buffer (current-buffer))
-         narrow-beg
-         narrow-end
-         headings)
-    (when (org-buffer-narrowed-p)
-      (setq narrow-beg (point-min-marker)
-            narrow-end (point-max-marker))
-      (widen))
-    (save-excursion
+   ((not (buffer-live-p (get-buffer (format "<tree>%s" (buffer-name)))))
+    (jit-lock-mode 1)
+    (jit-lock-fontify-now)
+    (let* ((headings (org-tree--headings))
+           (tree-name (format "<tree>%s" (buffer-name)))
+           (tree-buffer (generate-new-buffer tree-name))
+           (tree-mode-line (format "Org-Tree - %s"
+                                   (file-name-nondirectory buffer-file-name))))
+      (add-hook 'after-save-hook #'org-tree--update nil t)
+      (with-current-buffer tree-buffer
+        (org-tree-mode)
+        (setq tabulated-list-entries headings)
+        (tabulated-list-print t t)
+        (set-window-fringes (get-buffer-window tree-buffer) 1 1)
+        (setq mode-line-format tree-mode-line))
+      (pop-to-buffer tree-buffer)))
+   (t
+    (let ((tree-buffer (get-buffer
+                        (format "<tree>%s" (buffer-name))))
+          (heading (org-no-properties (org-get-heading t))))
+      (pop-to-buffer tree-buffer)
       (goto-char (point-min))
-      (while (re-search-forward heading-regexp nil t)
-        (push (list
-               (org-get-heading t)
-               (vector (cons (buffer-substring (pos-bol) (pos-eol))
-                             `(type org-tree
-                                    buffer ,buffer
-                                    pos ,(point-marker)
-                                    keymap org-tree-mode-map
-                                    ))))
-              headings)
-        (goto-char (1+ (pos-eol)))))
-    (when narrow-beg
+      (re-search-forward heading)
+      (beginning-of-line)
+      (hl-line-highlight)))))
+
+  (defun org-tree--headings ()
+    "Return a list of outline headings."
+    (interactive)
+    (let* ((heading-regexp (concat "^\\(?:"
+                                   org-outline-regexp
+                                   "\\)"))
+           (buffer (current-buffer))
+           narrow-beg
+           narrow-end
+           headings)
+      (when (org-buffer-narrowed-p)
+        (setq narrow-beg (point-min-marker)
+              narrow-end (point-max-marker))
+        (widen))
       (save-excursion
-        (narrow-to-region narrow-beg narrow-end)))
-    (unless headings
-      (user-error "No headings"))
-    (nreverse headings)))
+        (goto-char (point-min))
+        (while (re-search-forward heading-regexp nil t)
+          (push (list
+                 (org-get-heading t)
+                 (vector (cons (buffer-substring (line-beginning-position)
+                                                 (line-end-position))
+                               `(type org-tree
+                                      buffer ,buffer
+                                      pos ,(point-marker)
+                                      keymap org-tree-mode-map))))
+                headings)
+          (goto-char (1+ (line-end-position)))))
+      (when narrow-beg
+        (save-excursion
+          (narrow-to-region narrow-beg narrow-end)))
+      (unless headings
+        (user-error "No headings"))
+      (nreverse headings)))
 
 (defun org-tree--update ()
+  "Update Org-Tree buffer."
   (setq this-command 'org-tree--update)
   (let ((tree-buffer (get-buffer
                       (format "<tree>%s"
                               (buffer-name))))
+        (heading (org-get-heading t))
         headings)
     (if tree-buffer
         (progn
           (setq headings (org-tree--headings))
           (with-current-buffer tree-buffer
             (setq tabulated-list-entries headings)
-            ;; TODO figure out why I can't restore point
-            (tabulated-list-print t t)))
-      (remove-hook 'after-save-hook 'org-tree--update t))))
+            (tabulated-list-print t t)
+            (goto-char (point-min))
+            (re-search-forward heading)
+            (beginning-of-line)
+            (hl-line-highlight)))
+      (remove-hook 'after-save-hook #'org-tree--update t))))
 
 (defun org-tree-jump (&optional _)
   "Jump to headline."
@@ -138,7 +160,10 @@
         ;; point isn't accurate; use marker instead?
         (pos (get-text-property (point) 'pos)))
     (unless (buffer-live-p buffer)
-      (error "Base buffer has been killed"))
+      (when (yes-or-no-p
+             "Base buffer has been killed. Kill org-tree window?")
+        (kill-buffer-and-window))
+      (keyboard-quit))
     (pop-to-buffer buffer)
     (widen)
     (org-fold-show-all)
@@ -153,7 +178,7 @@
       (select-window tree-window))))
 
 (defun org-tree-buffer-p (&optional buffer)
-  "Is this buffer a tree-buffer?"
+  "Is this BUFFER a tree-buffer?"
   (interactive)
   (let ((buffer (or buffer (buffer-name))))
     (string-match "^<tree>.*" buffer)))
@@ -167,19 +192,19 @@
         (push-button nil t))
     (widen)
     (org-next-visible-heading 1)
-    ;; FIX: move cursor in tree window
-    ;; (let* ((tree-buffer (get-buffer (concat
-    ;;                                  "<tree>"
-    ;;                                  (buffer-name))))
-    ;;        (tree-window (get-buffer-window tree-buffer))
-    ;;        (base-buffer (buffer-base-buffer tree-buffer))
-    ;;        (base-window (get-buffer-window base-buffer))
-    ;;        (pos (point)))
-    ;;   (when tree-window
-    ;;     (select-window tree-window)
-    ;;     (goto-char pos) FIX: get tabulated list id instead
-    ;;     (hl-line-highlight)
-    ;;     (select-window base-window)))
+    (let* ((tree-buffer (get-buffer (concat
+                                     "<tree>"
+                                     (buffer-name))))
+           (tree-window (get-buffer-window tree-buffer))
+           (base-window (selected-window))
+           (heading (org-no-properties (org-get-heading t))))
+      (when tree-window
+        (select-window tree-window)
+        (goto-char (point-min))
+        (re-search-forward heading)
+        (beginning-of-line)
+        (hl-line-highlight)
+        (select-window base-window)))
     (if org-tree-narrow-on-jump
         (org-narrow-to-subtree))))
 
@@ -192,54 +217,22 @@
         (push-button nil t))
     (widen)
     (org-previous-visible-heading 1)
-    ;; FIX: move cursor in tree window
-    ;; (let* ((tree-buffer (get-buffer (concat
-    ;;                                  "<tree>"
-    ;;                                  (buffer-name))))
-    ;;        (tree-window (get-buffer-window tree-buffer))
-    ;;        (base-buffer (buffer-base-buffer tree-buffer))
-    ;;        (base-window (get-buffer-window base-buffer))
-    ;;        (pos (point)))
-    ;;   (when tree-window
-    ;;     (select-window tree-window)
-    ;;     (goto-char pos)
-    ;;     (hl-line-highlight)
-    ;;     (select-window base-window)))
+    (let* ((tree-buffer (get-buffer (concat
+                                     "<tree>"
+                                     (buffer-name))))
+           (tree-window (get-buffer-window tree-buffer))
+           (base-window (selected-window))
+           (heading (org-no-properties (org-get-heading t))))
+      (when tree-window
+        (select-window tree-window)
+        (goto-char (point-min))
+        (re-search-forward heading)
+        (beginning-of-line)
+        (hl-line-highlight)
+        (select-window base-window)))
     (when org-tree-narrow-on-jump
       (unless (org-before-first-heading-p)
         (org-narrow-to-subtree)))))
-
-;; (defun org-tree-live ()
-;;   "Update Org-Tree buffer."
-;;   ;; slow
-;;   ;; can't get the hook add/removal to work right
-;;   (interactive)
-;;   (let ((run-collect (make-symbol "run-collect"))
-;;         (stop-collect (make-symbol "stop-collect"))
-;;         timer)
-;;     (setf (symbol-function stop-collect)
-;;           (lambda ()
-;;             (remove-hook 'after-change-functions run-collect t)))
-;;     (setf (symbol-function run-collect)
-;;           (lambda (_1 _2 _3)
-;;             (unless timer
-;;               (setq timer
-;;                     (run-with-idle-timer
-;;                      0.05 nil
-;;                      (lambda ()
-;;                        (let ((headings (org-tree--headings))
-;;                              (tree-buffer (get-buffer
-;;                                            (format "<tree>%s"
-;;                                                    (buffer-name)))))
-;;                          ;; (if (not (buffer-live-p tree-buffer))
-;;                          ;;     (funcall stop-collect)
-;;                          (with-current-buffer tree-buffer
-;;                            (setq tabulated-list-entries headings)
-;;                            ;; TODO figure out why I can't restore point
-;;                            (tabulated-list-print t t))
-;;                          (setq timer nil)
-;;                          )))))))
-;;     (add-hook 'after-change-functions run-collect nil t)))
 
 (provide 'org-tree)
 ;;; org-tree.el ends here
