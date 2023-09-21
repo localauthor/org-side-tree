@@ -5,7 +5,7 @@
 ;; Author: Grant Rosson <https://github.com/localauthor>
 ;; Created: September 7, 2023
 ;; License: GPL-3.0-or-later
-;; Version: 0.2
+;; Version: 0.3
 ;; Homepage: https://github.com/localauthor/org-tree
 ;; Package-Requires: ((emacs "27.2"))
 
