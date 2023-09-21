@@ -65,7 +65,6 @@
 
 ;;;###autoload
 (defun org-tree ()
-  ;; FIX: if called when narrowed, doesn't fontify
   "Create Org-Tree buffer."
   (interactive)
   (when (org-tree-buffer-p)
@@ -77,8 +76,10 @@
          (heading (org-no-properties (org-get-heading t))))
     (unless (buffer-live-p tree-buffer)
       (setq tree-buffer (generate-new-buffer tree-name))
-      (jit-lock-mode 1)
-      (jit-lock-fontify-now)
+      (save-restriction
+        (widen)
+        (jit-lock-mode 1)
+        (jit-lock-fontify-now))
       (let* ((headings (org-tree--headings))
              (tree-mode-line (format "Org-Tree - %s"
                                      (file-name-nondirectory buffer-file-name))))
@@ -103,29 +104,23 @@
                                  org-outline-regexp
                                  "\\)"))
          (buffer (current-buffer))
-         narrow-beg
-         narrow-end
          headings)
-    (when (org-buffer-narrowed-p)
-      (setq narrow-beg (point-min-marker)
-            narrow-end (point-max-marker))
-      (widen))
-    (save-excursion
-      (goto-char (point-min))
-      (while (re-search-forward heading-regexp nil t)
-        (push (list
-               (org-get-heading t)
-               (vector (cons (buffer-substring (line-beginning-position)
-                                               (line-end-position))
-                             `(type org-tree
-                                    buffer ,buffer
-                                    pos ,(point-marker)
-                                    keymap org-tree-mode-map))))
-              headings)
-        (goto-char (1+ (line-end-position)))))
-    (when narrow-beg
+    (save-restriction
+      (widen)
       (save-excursion
-        (narrow-to-region narrow-beg narrow-end)))
+        (goto-char (point-min))
+        (while (re-search-forward heading-regexp nil t)
+          (push (list
+                 (org-get-heading t)
+                 (vector (cons (buffer-substring
+                                (line-beginning-position)
+                                (line-end-position))
+                               `(type org-tree
+                                      buffer ,buffer
+                                      pos ,(point-marker)
+                                      keymap org-tree-mode-map))))
+                headings)
+          (goto-char (1+ (line-end-position))))))
     (unless headings
       (user-error "No headings"))
     (nreverse headings)))
