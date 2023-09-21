@@ -67,70 +67,66 @@
 (defun org-tree ()
   "Create Org-Tree buffer."
   (interactive)
-  (cond
-   ((org-tree-buffer-p)
+  (when (org-tree-buffer-p)
     (error "Don't tree a tree"))
-   ((not (derived-mode-p 'org-mode))
+  (unless (derived-mode-p 'org-mode)
     (error "Not an org buffer"))
-   ((not (buffer-live-p (get-buffer (format "<tree>%s" (buffer-name)))))
+  (let* ((tree-name (format "<tree>%s" (buffer-name)))
+         (tree-buffer (get-buffer tree-name))
+         (heading (org-no-properties (org-get-heading t))))
+    (unless (buffer-live-p tree-buffer)
+      (setq tree-buffer (generate-new-buffer tree-name))
+      (let* ((headings (org-tree--headings))
+             (tree-mode-line (format "Org-Tree - %s"
+                                     (file-name-nondirectory buffer-file-name))))
+        (add-hook 'after-save-hook #'org-tree--update nil t)
+        (with-current-buffer tree-buffer
+          (org-tree-mode)
+          (setq tabulated-list-entries headings)
+          (tabulated-list-print t t)
+          (set-window-fringes (get-buffer-window tree-buffer) 1 1)
+          (setq mode-line-format tree-mode-line))))
+    (pop-to-buffer tree-buffer)
+    (goto-char (point-min))
+    (re-search-forward heading nil t)
+    (beginning-of-line)
+    (hl-line-highlight)))
+
+(defun org-tree--headings ()
+  "Return a list of outline headings."
+  (interactive)
+  (let* ((heading-regexp (concat "^\\(?:"
+                                 org-outline-regexp
+                                 "\\)"))
+         (buffer (current-buffer))
+         narrow-beg
+         narrow-end
+         headings)
+    (when (org-buffer-narrowed-p)
+      (setq narrow-beg (point-min-marker)
+            narrow-end (point-max-marker))
+      (widen))
     (jit-lock-mode 1)
     (jit-lock-fontify-now)
-    (let* ((headings (org-tree--headings))
-           (tree-name (format "<tree>%s" (buffer-name)))
-           (tree-buffer (generate-new-buffer tree-name))
-           (tree-mode-line (format "Org-Tree - %s"
-                                   (file-name-nondirectory buffer-file-name))))
-      (add-hook 'after-save-hook #'org-tree--update nil t)
-      (with-current-buffer tree-buffer
-        (org-tree-mode)
-        (setq tabulated-list-entries headings)
-        (tabulated-list-print t t)
-        (set-window-fringes (get-buffer-window tree-buffer) 1 1)
-        (setq mode-line-format tree-mode-line))
-      (pop-to-buffer tree-buffer)))
-   (t
-    (let ((tree-buffer (get-buffer
-                        (format "<tree>%s" (buffer-name))))
-          (heading (org-no-properties (org-get-heading t))))
-      (pop-to-buffer tree-buffer)
+    (save-excursion
       (goto-char (point-min))
-      (re-search-forward heading)
-      (beginning-of-line)
-      (hl-line-highlight)))))
-
-  (defun org-tree--headings ()
-    "Return a list of outline headings."
-    (interactive)
-    (let* ((heading-regexp (concat "^\\(?:"
-                                   org-outline-regexp
-                                   "\\)"))
-           (buffer (current-buffer))
-           narrow-beg
-           narrow-end
-           headings)
-      (when (org-buffer-narrowed-p)
-        (setq narrow-beg (point-min-marker)
-              narrow-end (point-max-marker))
-        (widen))
+      (while (re-search-forward heading-regexp nil t)
+        (push (list
+               (org-get-heading t)
+               (vector (cons (buffer-substring (line-beginning-position)
+                                               (line-end-position))
+                             `(type org-tree
+                                    buffer ,buffer
+                                    pos ,(point-marker)
+                                    keymap org-tree-mode-map))))
+              headings)
+        (goto-char (1+ (line-end-position)))))
+    (when narrow-beg
       (save-excursion
-        (goto-char (point-min))
-        (while (re-search-forward heading-regexp nil t)
-          (push (list
-                 (org-get-heading t)
-                 (vector (cons (buffer-substring (line-beginning-position)
-                                                 (line-end-position))
-                               `(type org-tree
-                                      buffer ,buffer
-                                      pos ,(point-marker)
-                                      keymap org-tree-mode-map))))
-                headings)
-          (goto-char (1+ (line-end-position)))))
-      (when narrow-beg
-        (save-excursion
-          (narrow-to-region narrow-beg narrow-end)))
-      (unless headings
-        (user-error "No headings"))
-      (nreverse headings)))
+        (narrow-to-region narrow-beg narrow-end)))
+    (unless headings
+      (user-error "No headings"))
+    (nreverse headings)))
 
 (defun org-tree--update ()
   "Update Org-Tree buffer."
