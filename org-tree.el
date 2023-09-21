@@ -143,12 +143,19 @@
                        (setq tabulated-list-entries headings)
                        (tabulated-list-print t t)
                        (goto-char (point-min))
-                       (re-search-forward heading)
+                       (when heading
+                         (re-search-forward heading))
                        (beginning-of-line)
                        (hl-line-highlight))
                      (setq timer nil))))))
       (remove-hook 'after-change-functions
                    #'org-tree-live-update t))))
+
+(defun org-tree-buffer-p (&optional buffer)
+  "Is this BUFFER a tree-buffer?"
+  (interactive)
+  (let ((buffer (or buffer (buffer-name))))
+    (string-match "^<tree>.*" buffer)))
 
 (defun org-tree-jump (&optional _)
   "Jump to headline."
@@ -174,12 +181,6 @@
     (when (or (eq this-command 'org-tree-next-heading)
               (eq this-command 'org-tree-previous-heading))
       (select-window tree-window))))
-
-(defun org-tree-buffer-p (&optional buffer)
-  "Is this BUFFER a tree-buffer?"
-  (interactive)
-  (let ((buffer (or buffer (buffer-name))))
-    (string-match "^<tree>.*" buffer)))
 
 (defun org-tree-next-heading ()
   "Move to next heading."
@@ -224,7 +225,8 @@
       (when tree-window
         (select-window tree-window)
         (goto-char (point-min))
-        (re-search-forward heading)
+        (when heading
+          (re-search-forward heading))
         (beginning-of-line)
         (hl-line-highlight)
         (select-window base-window)))
