@@ -99,9 +99,7 @@
     (org-tree-set-timer)
     (pop-to-buffer tree-buffer)
     (set-window-fringes (get-buffer-window tree-buffer) 1 1)
-    ;; is this 'when' necessary?
-    (when heading
-      (org-tree-go-to-heading heading))
+    (org-tree-go-to-heading heading)
     (beginning-of-line)
     (hl-line-highlight)))
 
@@ -160,23 +158,6 @@
         (tabulated-list-print t t)
         (goto-char (point-min))
         (org-tree-go-to-heading heading)
-        (beginning-of-line)
-        (hl-line-highlight)))))
-
-(defun org-tree-refresh-line (&optional n)
-  "Move org-tree cursor to Nth heading.
-If called from tree-buffer, use let-bound N from base-buffer."
-  (interactive)
-  (let* ((tree-buffer (or (get-buffer
-                           (format "<tree>%s"
-                                   (buffer-name)))
-                          ""))
-         (tree-window (get-buffer-window tree-buffer))
-         (n (or n (org-tree-heading-number))))
-    (when tree-window
-      (with-selected-window tree-window
-        (when n
-          (org-tree-go-to-heading n))
         (beginning-of-line)
         (hl-line-highlight)))))
 
@@ -246,7 +227,6 @@ If called from tree-buffer, use let-bound N from base-buffer."
         (push-button nil t))
     (widen)
     (org-next-visible-heading 1)
-    (org-tree-refresh-line)
     (if org-tree-narrow-on-jump
         (org-narrow-to-subtree))))
 
@@ -259,7 +239,6 @@ If called from tree-buffer, use let-bound N from base-buffer."
         (push-button nil t))
     (widen)
     (org-previous-visible-heading 1)
-    (org-tree-refresh-line)
     (when org-tree-narrow-on-jump
       (unless (org-before-first-heading-p)
         (org-narrow-to-subtree)))))
