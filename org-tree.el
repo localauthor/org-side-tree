@@ -29,20 +29,6 @@
 ;; Inspired by, modeled on `org-sidebar-tree' from org-sidebar by @alphapapa
 ;; and `embark-live' from Embark by @oantolin.
 
-;; TODO: check for movement to new subheading
-;; using post-command-hook, or idle-timer?
-;; MAYBE: incorporate this into live update
-;; pseudo:
-;; - get current heading-number
-;; - when (not eq last current)
-;; - then move cursor in tree-window
-
-;; FIX: using header-count is slower than search, so with live-update, typing is laggy
-;; MAYBE: live-update can be on a timer (idle, or 2 or 3 seconds) instead of on after-change-functions?
-;; pseudo:
-;; - when current-buffer has tree-buffer
-
-
 ;;; Code:
 
 (require 'org)
@@ -105,12 +91,12 @@
              (tree-mode-line (format "Org-Tree - %s"
                                      (file-name-nondirectory
                                       buffer-file-name))))
-        (org-tree-set-timer)
         (with-current-buffer tree-buffer
           (org-tree-mode)
           (setq tabulated-list-entries headings)
           (tabulated-list-print t t)
           (setq mode-line-format tree-mode-line))))
+    (org-tree-set-timer)
     (pop-to-buffer tree-buffer)
     (set-window-fringes (get-buffer-window tree-buffer) 1 1)
     ;; TODO: use refresh line?
@@ -168,13 +154,12 @@
     (when-let ((tree-buffer (get-buffer
                              (format "<tree>%s"
                                      (buffer-name))))
-               (heading (org-tree-heading-count))
+               (heading (org-tree-heading-number))
                (headings (org-tree-get-headings)))
       ;; only when tree-window is visible?
       (with-current-buffer tree-buffer
         (setq tabulated-list-entries headings)
         (tabulated-list-print t t)
-        ;; maybe use refresh-line instead?
         (goto-char (point-min))
         (org-tree-go-to-heading heading)
         (beginning-of-line)
@@ -189,7 +174,7 @@ If called from tree-buffer, use let-bound N from base-buffer."
                                    (buffer-name)))
                           ""))
          (tree-window (get-buffer-window tree-buffer))
-         (n (or n (org-tree-heading-count))))
+         (n (or n (org-tree-heading-number))))
     (when tree-window
       (with-selected-window tree-window
         (when n
@@ -204,13 +189,14 @@ If called from tree-buffer, use let-bound N from base-buffer."
         (throw 'tag t)))))
 
 (defun org-tree-buffer-p (&optional buffer)
-  "Is this BUFFER a tree-buffer?"
+  "Return t if current-buffer, or BUFFER, is a tree-buffer."
   (interactive)
   (let ((buffer (or buffer (buffer-name))))
     (string-match "^<tree>.*" buffer)))
 
 (defun org-tree-heading-number ()
   "Return the number of the current heading."
+  (interactive)
   (let ((count 0)
         (end (point)))
     (save-restriction
@@ -218,7 +204,7 @@ If called from tree-buffer, use let-bound N from base-buffer."
       (save-excursion
         (goto-char (point-min))
         (while (and (outline-next-heading)
-                    (< (point) end))
+                    (<= (point) end))
           (setq count (1+ count)))))
     count))
 
