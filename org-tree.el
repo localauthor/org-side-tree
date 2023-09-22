@@ -99,9 +99,6 @@
     (org-tree-set-timer)
     (pop-to-buffer tree-buffer)
     (set-window-fringes (get-buffer-window tree-buffer) 1 1)
-    ;; TODO: use refresh line?
-    ;; is this necessary?
-    (goto-char (point-min))
     ;; is this 'when' necessary?
     (when heading
       (org-tree-go-to-heading heading))
@@ -151,13 +148,14 @@
       (progn
         (cancel-timer org-tree-timer)
         (setq org-tree-timer nil))
-    (when-let ((tree-buffer (get-buffer
-                             (format "<tree>%s"
-                                     (buffer-name))))
-               (heading (org-tree-heading-number))
-               (headings (org-tree-get-headings)))
+    (when-let* ((tree-buffer (get-buffer
+                              (format "<tree>%s"
+                                      (buffer-name))))
+                (tree-window (get-buffer-window tree-buffer))
+                (heading (org-tree-heading-number))
+                (headings (org-tree-get-headings)))
       ;; only when tree-window is visible?
-      (with-current-buffer tree-buffer
+      (with-selected-window tree-window
         (setq tabulated-list-entries headings)
         (tabulated-list-print t t)
         (goto-char (point-min))
