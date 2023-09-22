@@ -1,4 +1,4 @@
-;;; org-tree.el --- Navigate Org outlines via side window           -*- lexical-binding: t; -*-
+;;; org-tree.el --- Navigate Org headings via tree outline           -*- lexical-binding: t; -*-
 
 ;; Copyright (C) 2023  Grant Rosson
 
@@ -24,11 +24,31 @@
 
 ;;; Commentary:
 
-;; Navigate Org buffer via tree-outline in a side window.
+;; Navigate Org headings via tree outline in a side window.
 
-;; Inspired by and modeled on org-sidebar by @alphapapa. Implemented with
-;; code borrowings from `embark-live' in Embark by @oantolin and from Consult
-;; by @minad.
+;; Inspired by, modeled on `org-sidebar-tree' from org-sidebar by @alphapapa
+;; and `embark-live' from Embark by @oantolin.
+
+;; TODO check for movement to new subheading
+;; using post-command-hook, or idle-timer?
+;; pseudo:
+;; get current org-heading
+;; when (not eq last current)
+;; then move cursor in tree-window
+
+;; FIX: movement of cursor in tree window presumes non-identical headings,
+;; since it uses search-forward;; how to differentiate headings absolutely?
+
+;; affected functions: org-tree; org-tree-live-update; org-tree-refresh-line;
+;; org-tree-next and previous
+
+;; maybe:
+;; count the number of headings
+;; and go to that one
+
+;; Ok, that works, but it's slower, so with live-update, typing is laggy
+
+;; maybe: live-update can be on a timer (2 or 3 seconds) instead of on after-change-functions??
 
 ;;; Code:
 
@@ -73,7 +93,7 @@
     (error "Not an org buffer"))
   (let* ((tree-name (format "<tree>%s" (buffer-name)))
          (tree-buffer (get-buffer tree-name))
-         (heading (org-no-properties (org-get-heading t))))
+         (heading (org-tree-heading-number)))
     (unless (buffer-live-p tree-buffer)
       (setq tree-buffer (generate-new-buffer tree-name))
       (save-restriction
@@ -88,12 +108,14 @@
           (org-tree-mode)
           (setq tabulated-list-entries headings)
           (tabulated-list-print t t)
-          (set-window-fringes (get-buffer-window tree-buffer) 1 1)
           (setq mode-line-format tree-mode-line))))
     (pop-to-buffer tree-buffer)
+    (set-window-fringes (get-buffer-window tree-buffer) 1 1)
+    ;; is this necessary?
     (goto-char (point-min))
+    ;; is this 'when' necessary?
     (when heading
-      (re-search-forward heading nil t))
+      (org-tree-go-to-heading heading))
     (beginning-of-line)
     (hl-line-highlight)))
 
@@ -130,7 +152,7 @@
   (let ((tree-buffer (get-buffer
                       (format "<tree>%s"
                               (buffer-name))))
-        (heading (org-get-heading t))
+        (heading (org-tree-heading-number))
         timer)
     (if tree-buffer
         (unless timer
@@ -142,20 +164,57 @@
                      (with-current-buffer tree-buffer
                        (setq tabulated-list-entries headings)
                        (tabulated-list-print t t)
+                       ;;is this necessary?
                        (goto-char (point-min))
-                       (when heading
-                         (re-search-forward heading))
+                       (org-tree-go-to-heading heading)
                        (beginning-of-line)
-                       (hl-line-highlight))
+                       (hl-line-highlight)
+                       )
                      (setq timer nil))))))
       (remove-hook 'after-change-functions
                    #'org-tree-live-update t))))
+
+(defun org-tree-refresh-line (&optional n)
+  "Move org-tree cursor to Nth heading.
+If called from tree-buffer, use let-bound N from base-buffer."
+  (interactive)
+  (let* ((tree-buffer (or (get-buffer
+                           (format "<tree>%s"
+                                   (buffer-name)))
+                          ""))
+         (tree-window (get-buffer-window tree-buffer))
+         (n (or n (org-tree-heading-count))))
+    (when tree-window
+      (with-selected-window tree-window
+        (when n
+          (org-tree-go-to-heading n))
+        (beginning-of-line)
+        (hl-line-highlight)))))
 
 (defun org-tree-buffer-p (&optional buffer)
   "Is this BUFFER a tree-buffer?"
   (interactive)
   (let ((buffer (or buffer (buffer-name))))
     (string-match "^<tree>.*" buffer)))
+
+(defun org-tree-heading-number ()
+  "Return the number of the current heading."
+  (let ((count 0)
+        (end (point)))
+    (save-restriction
+      (widen)
+      (save-excursion
+        (goto-char (point-min))
+        (while (and (outline-next-heading)
+                    (< (point) end))
+          (setq count (1+ count)))))
+    count))
+
+(defun org-tree-go-to-heading (n)
+  "Go to Nth heading."
+  (goto-char (point-min))
+  (dotimes (x (1- n))
+    (outline-next-heading)))
 
 (defun org-tree-jump (&optional _)
   "Jump to headline."
@@ -191,19 +250,7 @@
         (push-button nil t))
     (widen)
     (org-next-visible-heading 1)
-    (let* ((tree-buffer (get-buffer (concat
-                                     "<tree>"
-                                     (buffer-name))))
-           (tree-window (get-buffer-window tree-buffer))
-           (base-window (selected-window))
-           (heading (org-no-properties (org-get-heading t))))
-      (when tree-window
-        (select-window tree-window)
-        (goto-char (point-min))
-        (re-search-forward heading)
-        (beginning-of-line)
-        (hl-line-highlight)
-        (select-window base-window)))
+    (org-tree-refresh-line)
     (if org-tree-narrow-on-jump
         (org-narrow-to-subtree))))
 
@@ -216,20 +263,7 @@
         (push-button nil t))
     (widen)
     (org-previous-visible-heading 1)
-    (let* ((tree-buffer (get-buffer (concat
-                                     "<tree>"
-                                     (buffer-name))))
-           (tree-window (get-buffer-window tree-buffer))
-           (base-window (selected-window))
-           (heading (org-no-properties (org-get-heading t))))
-      (when tree-window
-        (select-window tree-window)
-        (goto-char (point-min))
-        (when heading
-          (re-search-forward heading))
-        (beginning-of-line)
-        (hl-line-highlight)
-        (select-window base-window)))
+    (org-tree-refresh-line)
     (when org-tree-narrow-on-jump
       (unless (org-before-first-heading-p)
         (org-narrow-to-subtree)))))
