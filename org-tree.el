@@ -58,7 +58,7 @@
   :group 'org-tree
   :type 'number)
 
-(defcustom org-tree-narrow-on-jump t
+(defcustom org-tree-narrow-on-jump nil
   "When non-nil, source buffer is narrowed to subtree."
   :group 'org-tree
   :type 'boolean)
