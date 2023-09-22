@@ -67,14 +67,22 @@
   (setq fringe-indicator-alist
         '((truncation nil nil))))
 
-(define-button-type 'org-tree
-  'action 'org-tree-jump
-  'help-echo nil)
+(defcustom org-tree-timer-delay .1
+  "Timer to update headings and cursor position."
+  :group 'org-tree
+  :type 'number)
 
 (defcustom org-tree-narrow-on-jump t
   "When non-nil, source buffer is narrowed to subtree."
   :group 'org-tree
   :type 'boolean)
+
+(defvar org-tree-timer nil
+  "Timer to update headings and cursor position.")
+
+(define-button-type 'org-tree
+  'action 'org-tree-jump
+  'help-echo nil)
 
 ;;;###autoload
 (defun org-tree ()
@@ -93,10 +101,11 @@
         (widen)
         (jit-lock-mode 1)
         (jit-lock-fontify-now))
-      (let* ((headings (org-tree--headings))
+      (let* ((headings (org-tree-get-headings))
              (tree-mode-line (format "Org-Tree - %s"
-                                     (file-name-nondirectory buffer-file-name))))
-        (add-hook 'after-change-functions #'org-tree-live-update nil t)
+                                     (file-name-nondirectory
+                                      buffer-file-name))))
+        (org-tree-set-timer)
         (with-current-buffer tree-buffer
           (org-tree-mode)
           (setq tabulated-list-entries headings)
@@ -104,6 +113,7 @@
           (setq mode-line-format tree-mode-line))))
     (pop-to-buffer tree-buffer)
     (set-window-fringes (get-buffer-window tree-buffer) 1 1)
+    ;; TODO: use refresh line?
     ;; is this necessary?
     (goto-char (point-min))
     ;; is this 'when' necessary?
@@ -112,7 +122,7 @@
     (beginning-of-line)
     (hl-line-highlight)))
 
-(defun org-tree--headings ()
+(defun org-tree-get-headings ()
   "Return a list of outline headings."
   (interactive)
   (let* ((heading-regexp (concat "^\\(?:"
@@ -140,32 +150,35 @@
       (user-error "No headings"))
     (nreverse headings)))
 
-(defun org-tree-live-update (_1 _2 _3)
+(defun org-tree-set-timer ()
   "Update headings."
-  (let ((tree-buffer (get-buffer
-                      (format "<tree>%s"
-                              (buffer-name))))
-        (heading (org-tree-heading-number))
-        timer)
-    (if tree-buffer
-        (unless timer
-          (setq timer
-                (run-with-idle-timer
-                 0.05 nil
-                 (lambda ()
-                   (let ((headings (org-tree--headings)))
-                     (with-current-buffer tree-buffer
-                       (setq tabulated-list-entries headings)
-                       (tabulated-list-print t t)
-                       ;;is this necessary?
-                       (goto-char (point-min))
-                       (org-tree-go-to-heading heading)
-                       (beginning-of-line)
-                       (hl-line-highlight)
-                       )
-                     (setq timer nil))))))
-      (remove-hook 'after-change-functions
-                   #'org-tree-live-update t))))
+  (let ((heading (org-tree-heading-number)))
+    (unless org-tree-timer
+      (setq org-tree-timer
+            (run-with-idle-timer
+             org-tree-timer-delay t
+             'org-tree-timer-function)))))
+
+(defun org-tree-timer-function ()
+  "Timer for org-tree-live-update."
+  (if (not (org-tree-buffer-exists-p))
+      (progn
+        (cancel-timer org-tree-timer)
+        (setq org-tree-timer nil))
+    (when-let ((tree-buffer (get-buffer
+                             (format "<tree>%s"
+                                     (buffer-name))))
+               (heading (org-tree-heading-count))
+               (headings (org-tree-get-headings)))
+      ;; only when tree-window is visible?
+      (with-current-buffer tree-buffer
+        (setq tabulated-list-entries headings)
+        (tabulated-list-print t t)
+        ;; maybe use refresh-line instead?
+        (goto-char (point-min))
+        (org-tree-go-to-heading heading)
+        (beginning-of-line)
+        (hl-line-highlight)))))
 
 (defun org-tree-refresh-line (&optional n)
   "Move org-tree cursor to Nth heading.
@@ -183,6 +196,12 @@ If called from tree-buffer, use let-bound N from base-buffer."
           (org-tree-go-to-heading n))
         (beginning-of-line)
         (hl-line-highlight)))))
+
+(defun org-tree-buffer-exists-p ()
+  (catch 'tag
+    (dolist (buf (buffer-list))
+      (when (string-match "^<tree>.*" (buffer-name buf))
+        (throw 'tag t)))))
 
 (defun org-tree-buffer-p (&optional buffer)
   "Is this BUFFER a tree-buffer?"
