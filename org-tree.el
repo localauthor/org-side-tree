@@ -29,26 +29,19 @@
 ;; Inspired by, modeled on `org-sidebar-tree' from org-sidebar by @alphapapa
 ;; and `embark-live' from Embark by @oantolin.
 
-;; TODO check for movement to new subheading
+;; TODO: check for movement to new subheading
 ;; using post-command-hook, or idle-timer?
+;; MAYBE: incorporate this into live update
 ;; pseudo:
-;; get current org-heading
-;; when (not eq last current)
-;; then move cursor in tree-window
+;; - get current heading-number
+;; - when (not eq last current)
+;; - then move cursor in tree-window
 
-;; FIX: movement of cursor in tree window presumes non-identical headings,
-;; since it uses search-forward;; how to differentiate headings absolutely?
+;; FIX: using header-count is slower than search, so with live-update, typing is laggy
+;; MAYBE: live-update can be on a timer (idle, or 2 or 3 seconds) instead of on after-change-functions?
+;; pseudo:
+;; - when current-buffer has tree-buffer
 
-;; affected functions: org-tree; org-tree-live-update; org-tree-refresh-line;
-;; org-tree-next and previous
-
-;; maybe:
-;; count the number of headings
-;; and go to that one
-
-;; Ok, that works, but it's slower, so with live-update, typing is laggy
-
-;; maybe: live-update can be on a timer (2 or 3 seconds) instead of on after-change-functions??
 
 ;;; Code:
 
