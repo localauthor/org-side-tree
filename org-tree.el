@@ -26,8 +26,8 @@
 
 ;; Navigate Org headings via tree outline in a side window.
 
-;; Inspired by, modeled on `org-sidebar-tree' from org-sidebar by @alphapapa
-;; and `embark-live' from Embark by @oantolin.
+;; Inspired by and modeled on `org-sidebar-tree' from org-sidebar by
+;; @alphapapa and `embark-live' from Embark by @oantolin.
 
 ;;; Code:
 
@@ -177,7 +177,10 @@
   "Return the number of the current heading."
   (interactive)
   (let ((count 0)
-        (end (point)))
+        (end (save-excursion
+               (unless (org-at-heading-p)
+                 (org-previous-visible-heading 1))
+               (point))))
     (save-restriction
       (widen)
       (save-excursion
