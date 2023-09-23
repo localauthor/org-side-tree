@@ -59,7 +59,11 @@
   :group 'org-tree
   :type 'boolean)
 
-(defvar org-tree-add-overlays t)
+(defvar org-tree-add-overlays t
+  "When non-nil, overlays are included in tree-buffer headings
+This includes `org-todo' heads and `org-num' numbering."
+  :group 'org-tree
+  :type 'boolean)
 
 (define-button-type 'org-tree
   'action 'org-tree-jump
