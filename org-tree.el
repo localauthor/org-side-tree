@@ -83,6 +83,7 @@
          (heading (org-tree-heading-number)))
     (unless (buffer-live-p tree-buffer)
       (setq tree-buffer (generate-new-buffer tree-name))
+      (add-hook 'kill-buffer-hook #'org-tree-cleanup nil t)
       (save-restriction
         (widen)
         (jit-lock-mode 1)
@@ -142,7 +143,7 @@
 
 (defun org-tree-timer-function ()
   "Timer for org-tree-live-update."
-  (if (not (org-tree-buffer-exists-p))
+  (if (not (org-tree-buffer-list))
       (progn
         (cancel-timer org-tree-timer)
         (setq org-tree-timer nil))
@@ -161,11 +162,21 @@
         (beginning-of-line)
         (hl-line-highlight)))))
 
-(defun org-tree-buffer-exists-p ()
-  (catch 'tag
-    (dolist (buf (buffer-list))
-      (when (string-match "^<tree>.*" (buffer-name buf))
-        (throw 'tag t)))))
+(defun org-tree-cleanup ()
+  "Kill org-tree buffer associated with current buffer.
+This is added to `'kill-buffer-hook' for each base-buffer."
+  (when-let* ((tree-name (format "<tree>%s" (buffer-name)))
+              (tree-buffer (get-buffer tree-name)))
+    (kill-buffer tree-buffer)))
+
+(defun org-tree-buffer-list ()
+  "Returns list of current Org-Tree buffers."
+  (delq nil
+        (mapcar
+         (lambda (buf)
+           (when (string-match "^<tree>.*" (buffer-name buf))
+             buf))
+         (buffer-list))))
 
 (defun org-tree-buffer-p (&optional buffer)
   "Return t if current-buffer, or BUFFER, is a tree-buffer."
@@ -201,7 +212,6 @@
   (interactive)
   (let ((tree-window (selected-window))
         (buffer (get-text-property (point) 'buffer))
-        ;; point isn't accurate; use marker instead?
         (pos (get-text-property (point) 'pos)))
     (unless (buffer-live-p buffer)
       (when (yes-or-no-p
