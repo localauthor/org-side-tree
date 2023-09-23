@@ -59,6 +59,8 @@
   :group 'org-tree
   :type 'boolean)
 
+(defvar org-tree-add-overlays t)
+
 (define-button-type 'org-tree
   'action 'org-tree-jump
   'help-echo nil)
@@ -77,7 +79,7 @@
     (unless (buffer-live-p tree-buffer)
       (setq tree-buffer (generate-new-buffer tree-name))
       (add-hook 'kill-buffer-hook #'org-tree-cleanup nil t)
-      (add-hook 'after-change-functions #'org-tree-live-update nil t)
+      (add-hook 'after-change-functions #'org-tree-live-update 90 t)
       (save-restriction
         (widen)
         (jit-lock-mode 1)
@@ -112,10 +114,13 @@
         (while (re-search-forward heading-regexp nil t)
           (let* ((beg (line-beginning-position))
                  (end (line-end-position))
-                 (line (overlays-to-text beg end)))
+                 (line (org-tree-overlays-to-text beg end)))
             (push (list
                    (org-get-heading t)
-                   (vector (cons line
+                   (vector (cons (if (and org-tree-add-overlays
+                                          line)
+                                     line
+                                   (buffer-substring beg end))
                                  `(type org-tree
                                         buffer ,buffer
                                         pos ,(point-marker)
