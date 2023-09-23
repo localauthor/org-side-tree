@@ -32,6 +32,7 @@
 ;;; Code:
 
 (require 'org)
+(require 'hl-line)
 
 (defvar org-tree-mode-map
   (let ((map (make-sparse-keymap)))
@@ -53,18 +54,10 @@
   (setq fringe-indicator-alist
         '((truncation nil nil))))
 
-(defcustom org-tree-timer-delay .1
-  "Timer to update headings and cursor position."
-  :group 'org-tree
-  :type 'number)
-
 (defcustom org-tree-narrow-on-jump nil
   "When non-nil, source buffer is narrowed to subtree."
   :group 'org-tree
   :type 'boolean)
-
-(defvar org-tree-timer nil
-  "Timer to update headings and cursor position.")
 
 (define-button-type 'org-tree
   'action 'org-tree-jump
@@ -84,6 +77,7 @@
     (unless (buffer-live-p tree-buffer)
       (setq tree-buffer (generate-new-buffer tree-name))
       (add-hook 'kill-buffer-hook #'org-tree-cleanup nil t)
+      (add-hook 'after-change-functions #'org-tree-live-update nil t)
       (save-restriction
         (widen)
         (jit-lock-mode 1)
@@ -97,7 +91,6 @@
           (setq tabulated-list-entries headings)
           (tabulated-list-print t t)
           (setq mode-line-format tree-mode-line))))
-    (org-tree-set-timer)
     (pop-to-buffer tree-buffer)
     (set-window-fringes (get-buffer-window tree-buffer) 1 1)
     (org-tree-go-to-heading heading)
@@ -132,45 +125,40 @@
       (user-error "No headings"))
     (nreverse headings)))
 
-(defun org-tree-set-timer ()
-  "Update headings."
-  (let ((heading (org-tree-heading-number)))
-    (unless org-tree-timer
-      (setq org-tree-timer
-            (run-with-idle-timer
-             org-tree-timer-delay t
-             'org-tree-timer-function)))))
+(defun org-tree-live-update (_a _b _c)
+  "Function added to `after-change-functions' to update tree-buffer."
+  (if (not (member (get-buffer (format "<tree>%s"
+                                       (buffer-name)))
+                   (org-tree-buffer-list)))
+      (remove-hook 'after-change-functions #'org-tree-live-update t)
+    (org-tree-update-line)))
 
-(defun org-tree-timer-function ()
-  "Timer for org-tree-live-update."
-  (if (not (org-tree-buffer-list))
-      (progn
-        (cancel-timer org-tree-timer)
-        (setq org-tree-timer nil))
-    (when-let* ((tree-buffer (get-buffer
-                              (format "<tree>%s"
-                                      (buffer-name))))
-                (tree-window (get-buffer-window tree-buffer))
-                (heading (org-tree-heading-number))
-                (headings (org-tree-get-headings)))
-      ;; only when tree-window is visible?
-      (with-selected-window tree-window
-        (setq tabulated-list-entries headings)
-        (tabulated-list-print t t)
-        (goto-char (point-min))
-        (org-tree-go-to-heading heading)
-        (beginning-of-line)
-        (hl-line-highlight)))))
+(defun org-tree-update-line ()
+  "Refresh cursor position in tree-buffer."
+  (when-let* ((tree-buffer (get-buffer
+                            (format "<tree>%s"
+                                    (buffer-name))))
+              (tree-window (get-buffer-window tree-buffer))
+              (heading (org-tree-heading-number))
+              (headings (org-tree-get-headings)))
+    ;; only when tree-window is visible?
+    (with-selected-window tree-window
+      (setq tabulated-list-entries headings)
+      (tabulated-list-print t t)
+      (goto-char (point-min))
+      (org-tree-go-to-heading heading)
+      (beginning-of-line)
+      (hl-line-highlight))))
 
 (defun org-tree-cleanup ()
-  "Kill org-tree buffer associated with current buffer.
+  "Kill Org-Tree buffer associated with current buffer.
 This is added to `'kill-buffer-hook' for each base-buffer."
   (when-let* ((tree-name (format "<tree>%s" (buffer-name)))
               (tree-buffer (get-buffer tree-name)))
     (kill-buffer tree-buffer)))
 
 (defun org-tree-buffer-list ()
-  "Returns list of current Org-Tree buffers."
+  "Return list of current Org-Tree buffers."
   (delq nil
         (mapcar
          (lambda (buf)
@@ -179,7 +167,7 @@ This is added to `'kill-buffer-hook' for each base-buffer."
          (buffer-list))))
 
 (defun org-tree-buffer-p (&optional buffer)
-  "Return t if current-buffer, or BUFFER, is a tree-buffer."
+  "Return t if current buffer, or BUFFER, is a tree-buffer."
   (interactive)
   (let ((buffer (or buffer (buffer-name))))
     (string-match "^<tree>.*" buffer)))
@@ -204,7 +192,7 @@ This is added to `'kill-buffer-hook' for each base-buffer."
 (defun org-tree-go-to-heading (n)
   "Go to Nth heading."
   (goto-char (point-min))
-  (dotimes (x (1- n))
+  (dotimes (_x (1- n))
     (outline-next-heading)))
 
 (defun org-tree-jump (&optional _)
@@ -240,6 +228,7 @@ This is added to `'kill-buffer-hook' for each base-buffer."
         (push-button nil t))
     (widen)
     (org-next-visible-heading 1)
+    (org-tree-update-line)
     (if org-tree-narrow-on-jump
         (org-narrow-to-subtree))))
 
@@ -252,6 +241,7 @@ This is added to `'kill-buffer-hook' for each base-buffer."
         (push-button nil t))
     (widen)
     (org-previous-visible-heading 1)
+    (org-tree-update-line)
     (when org-tree-narrow-on-jump
       (unless (org-before-first-heading-p)
         (org-narrow-to-subtree)))))
