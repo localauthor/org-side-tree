@@ -167,10 +167,12 @@ This is added to `'kill-buffer-hook' for each base-buffer."
          (buffer-list))))
 
 (defun org-tree-buffer-p (&optional buffer)
-  "Return t if current buffer, or BUFFER, is a tree-buffer."
+  "Return t if current buffer, or BUFFER-OR-NAME, is a tree-buffer."
   (interactive)
-  (let ((buffer (or buffer (buffer-name))))
-    (string-match "^<tree>.*" buffer)))
+  (let ((buffer (get-buffer (or buffer
+                                (current-buffer)))))
+    (when (member buffer (org-tree-buffer-list))
+      t)))
 
 (defun org-tree-heading-number ()
   "Return the number of the current heading."
