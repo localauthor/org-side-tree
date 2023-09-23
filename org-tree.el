@@ -189,7 +189,11 @@ This is added to `'kill-buffer-hook' for each base-buffer."
         (while (and (outline-next-heading)
                     (<= (point) end))
           (setq count (1+ count)))))
-    count))
+    (cond ((member this-command '(org-metadown
+                                  org-metaup))
+           (1- count))
+          (t
+           count))))
 
 (defun org-tree-go-to-heading (n)
   "Go to Nth heading."
