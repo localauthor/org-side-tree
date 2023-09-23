@@ -110,20 +110,47 @@
       (save-excursion
         (goto-char (point-min))
         (while (re-search-forward heading-regexp nil t)
-          (push (list
-                 (org-get-heading t)
-                 (vector (cons (buffer-substring
-                                (line-beginning-position)
-                                (line-end-position))
-                               `(type org-tree
-                                      buffer ,buffer
-                                      pos ,(point-marker)
-                                      keymap org-tree-mode-map))))
-                headings)
-          (goto-char (1+ (line-end-position))))))
+          (let* ((beg (line-beginning-position))
+                 (end (line-end-position))
+                 (line (overlays-to-text beg end)))
+            (push (list
+                   (org-get-heading t)
+                   (vector (cons line
+                                 `(type org-tree
+                                        buffer ,buffer
+                                        pos ,(point-marker)
+                                        keymap org-tree-mode-map))))
+                  headings)
+            (goto-char (1+ (line-end-position)))))))
     (unless headings
       (user-error "No headings"))
     (nreverse headings)))
+
+(defun org-tree-overlays-to-text (beg end)
+  "Return line from BEG to END with overlays as text."
+  (let ((overlays (overlays-in beg end))
+        text)
+    (setq overlays (sort overlays (lambda (o1 o2)
+                                    (< (overlay-start o1)
+                                       (overlay-start o2)))))
+    (mapc (lambda (o)
+            (let ((t1 (buffer-substring beg (overlay-start o)))
+                  (t2 (overlay-get o 'before-string))
+                  (t3 (or (overlay-get o 'display)
+                          (buffer-substring (overlay-start o) (overlay-end o))))
+                  (t4 (overlay-get o 'after-string))
+                  (t5 (buffer-substring (overlay-end o) end))
+                  (inv (overlay-get o 'invisible)))
+              (with-temp-buffer
+                (insert t1)
+                (unless inv
+                  (when t2 (insert t2))
+                  (insert t3)
+                  (when t4 (insert t4)))
+                (insert t5)
+                (setq text (buffer-string)))))
+          overlays)
+    text))
 
 (defun org-tree-live-update (_a _b _c)
   "Function added to `after-change-functions' to update tree-buffer."
