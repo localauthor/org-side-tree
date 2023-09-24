@@ -29,6 +29,9 @@
 ;; Inspired by and modeled on `org-sidebar-tree' from org-sidebar by
 ;; @alphapapa and `embark-live' from Embark by @oantolin.
 
+;; FIX: with post-command-hook, scrolling is jumpy, bc the scroll action is pushing the cursor around
+;; maybe go back to timer, with added cursor point condition?
+
 ;;; Code:
 
 (require 'org)
@@ -59,11 +62,16 @@
   :group 'org-tree
   :type 'boolean)
 
-(defvar org-tree-add-overlays t
-  "When non-nil, overlays are included in tree-buffer headings
+(defcustom org-tree-add-overlays t
+  "When non-nil, overlays are included in tree-buffer headings.
 This includes `org-todo' heads and `org-num' numbering."
   :group 'org-tree
   :type 'boolean)
+
+(defvar org-tree-last-point 0
+  "Cursor position from the last run of `post-command-hook'.")
+
+(make-variable-buffer-local 'org-tree-last-point)
 
 (define-button-type 'org-tree
   'action 'org-tree-jump
@@ -83,7 +91,7 @@ This includes `org-todo' heads and `org-num' numbering."
     (unless (buffer-live-p tree-buffer)
       (setq tree-buffer (generate-new-buffer tree-name))
       (add-hook 'kill-buffer-hook #'org-tree-cleanup nil t)
-      (add-hook 'after-change-functions #'org-tree-live-update 90 t)
+      (add-hook 'post-command-hook #'org-tree-live-update nil t)
       (save-restriction
         (widen)
         (jit-lock-mode 1)
@@ -161,13 +169,15 @@ This includes `org-todo' heads and `org-num' numbering."
           overlays)
     text))
 
-(defun org-tree-live-update (_a _b _c)
-  "Function added to `after-change-functions' to update tree-buffer."
-  (if (not (member (get-buffer (format "<tree>%s"
-                                       (buffer-name)))
-                   (org-tree-buffer-list)))
-      (remove-hook 'after-change-functions #'org-tree-live-update t)
-    (org-tree-update-line)))
+(defun org-tree-live-update ()
+  "Function added to `post-command-hook' to update tree-buffer."
+  (unless (equal (point) org-tree-last-point)
+    (if (not (member (get-buffer (format "<tree>%s"
+                                         (buffer-name)))
+                     (org-tree-buffer-list)))
+        (remove-hook 'post-command-hook #'org-tree-live-update t)
+      (org-tree-update-line))
+    (setq org-tree-last-point (point))))
 
 (defun org-tree-update-line ()
   "Refresh cursor position in tree-buffer."
@@ -202,10 +212,10 @@ This is added to `'kill-buffer-hook' for each base-buffer."
              buf))
          (buffer-list))))
 
-(defun org-tree-buffer-p (&optional buffer)
+(defun org-tree-buffer-p (&optional buffer-or-name)
   "Return t if current buffer, or BUFFER-OR-NAME, is a tree-buffer."
   (interactive)
-  (let ((buffer (get-buffer (or buffer
+  (let ((buffer (get-buffer (or buffer-or-name
                                 (current-buffer)))))
     (when (member buffer (org-tree-buffer-list))
       t)))
@@ -225,11 +235,7 @@ This is added to `'kill-buffer-hook' for each base-buffer."
         (while (and (outline-next-heading)
                     (<= (point) end))
           (setq count (1+ count)))))
-    (cond ((member this-command '(org-metadown
-                                  org-metaup))
-           (1- count))
-          (t
-           count))))
+    count))
 
 (defun org-tree-go-to-heading (n)
   "Go to Nth heading."
