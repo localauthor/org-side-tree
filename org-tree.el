@@ -29,9 +29,6 @@
 ;; Inspired by and modeled on `org-sidebar-tree' from org-sidebar by
 ;; @alphapapa and `embark-live' from Embark by @oantolin.
 
-;; FIX: with post-command-hook, scrolling is jumpy, bc the scroll action is pushing the cursor around
-;; maybe go back to timer, with added cursor point condition?
-
 ;;; Code:
 
 (require 'org)
@@ -62,11 +59,19 @@
   :group 'org-tree
   :type 'boolean)
 
+(defcustom org-tree-timer-delay .1
+  "Timer to update headings and cursor position."
+  :group 'org-tree
+  :type 'number)
+
 (defcustom org-tree-add-overlays t
   "When non-nil, overlays are included in tree-buffer headings.
 This includes `org-todo' heads and `org-num' numbering."
   :group 'org-tree
   :type 'boolean)
+
+(defvar org-tree-timer nil
+  "Timer to update headings and cursor position.")
 
 (defvar org-tree-last-point 0
   "Cursor position from the last run of `post-command-hook'.")
@@ -91,7 +96,6 @@ This includes `org-todo' heads and `org-num' numbering."
     (unless (buffer-live-p tree-buffer)
       (setq tree-buffer (generate-new-buffer tree-name))
       (add-hook 'kill-buffer-hook #'org-tree-cleanup nil t)
-      (add-hook 'post-command-hook #'org-tree-live-update nil t)
       (save-restriction
         (widen)
         (jit-lock-mode 1)
@@ -105,6 +109,7 @@ This includes `org-todo' heads and `org-num' numbering."
           (setq tabulated-list-entries headings)
           (tabulated-list-print t t)
           (setq mode-line-format tree-mode-line))))
+    (org-tree-set-timer)
     (pop-to-buffer tree-buffer)
     (set-window-fringes (get-buffer-window tree-buffer) 1 1)
     (org-tree-go-to-heading heading)
@@ -169,13 +174,21 @@ This includes `org-todo' heads and `org-num' numbering."
           overlays)
     text))
 
-(defun org-tree-live-update ()
-  "Function added to `post-command-hook' to update tree-buffer."
+(defun org-tree-set-timer ()
+  "Set `org-tree-timer-function'."
+  (unless org-tree-timer
+    (setq org-tree-timer
+          (run-with-idle-timer
+           org-tree-timer-delay t
+           'org-tree-timer-function))))
+
+(defun org-tree-timer-function ()
+  "Timer for `org-tree-update-line'."
   (unless (equal (point) org-tree-last-point)
-    (if (not (member (get-buffer (format "<tree>%s"
-                                         (buffer-name)))
-                     (org-tree-buffer-list)))
-        (remove-hook 'post-command-hook #'org-tree-live-update t)
+    (if (not (org-tree-buffer-list))
+        (progn
+          (cancel-timer org-tree-timer)
+          (setq org-tree-timer nil))
       (org-tree-update-line))
     (setq org-tree-last-point (point))))
 
@@ -187,7 +200,6 @@ This includes `org-todo' heads and `org-num' numbering."
               (tree-window (get-buffer-window tree-buffer))
               (heading (org-tree-heading-number))
               (headings (org-tree-get-headings)))
-    ;; only when tree-window is visible?
     (with-selected-window tree-window
       (setq tabulated-list-entries headings)
       (tabulated-list-print t t)
