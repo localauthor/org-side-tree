@@ -180,17 +180,19 @@ This includes `org-todo' heads and `org-num' numbering."
     (setq org-tree-timer
           (run-with-idle-timer
            org-tree-timer-delay t
-           'org-tree-timer-function))))
+           #'org-tree-timer-function))))
 
 (defun org-tree-timer-function ()
   "Timer for `org-tree-update-line'."
-  (unless (equal (point) org-tree-last-point)
-    (if (not (org-tree-buffer-list))
-        (progn
-          (cancel-timer org-tree-timer)
-          (setq org-tree-timer nil))
-      (org-tree-update-line))
-    (setq org-tree-last-point (point))))
+  (if (not (org-tree-buffer-list))
+      (progn
+        (cancel-timer org-tree-timer)
+        (setq org-tree-timer nil))
+    (unless (or (minibufferp)
+                (not (org-tree-has-tree-p))
+                (equal (point) org-tree-last-point))
+      (org-tree-update-line)
+      (setq org-tree-last-point (point)))))
 
 (defun org-tree-update-line ()
   "Refresh cursor position in tree-buffer."
@@ -211,8 +213,7 @@ This includes `org-todo' heads and `org-num' numbering."
 (defun org-tree-cleanup ()
   "Kill Org-Tree buffer associated with current buffer.
 This is added to `'kill-buffer-hook' for each base-buffer."
-  (when-let* ((tree-name (format "<tree>%s" (buffer-name)))
-              (tree-buffer (get-buffer tree-name)))
+  (when-let* ((tree-buffer (org-tree-has-tree-p)))
     (kill-buffer tree-buffer)))
 
 (defun org-tree-buffer-list ()
@@ -220,17 +221,19 @@ This is added to `'kill-buffer-hook' for each base-buffer."
   (delq nil
         (mapcar
          (lambda (buf)
-           (when (string-match "^<tree>.*" (buffer-name buf))
-             buf))
+           (org-tree-has-tree-p buf))
          (buffer-list))))
 
-(defun org-tree-buffer-p (&optional buffer-or-name)
-  "Return t if current buffer, or BUFFER-OR-NAME, is a tree-buffer."
-  (interactive)
-  (let ((buffer (get-buffer (or buffer-or-name
-                                (current-buffer)))))
-    (when (member buffer (org-tree-buffer-list))
-      t)))
+(defun org-tree-buffer-p ()
+  "Return t if current buffer is a tree-buffer."
+  (when (member (current-buffer) (org-tree-buffer-list))
+    t))
+
+(defun org-tree-has-tree-p (&optional buffer)
+  "Return tree-buffer associated with BUFFER or current buffer."
+  (let ((buffer (or buffer
+                    (current-buffer))))
+    (get-buffer (format "<tree>%s" (buffer-name buffer)))))
 
 (defun org-tree-heading-number ()
   "Return the number of the current heading."
