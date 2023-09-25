@@ -29,8 +29,6 @@
 ;; Inspired by and modeled on `org-sidebar-tree' from org-sidebar by
 ;; @alphapapa and `embark-live' from Embark by @oantolin.
 
-;; ADD: org-move-subtree-up -down
-
 ;;; Code:
 
 (require 'org)
@@ -43,8 +41,6 @@
     (define-key map (kbd "<mouse-1>") #'push-button)
     (define-key map (kbd "n") #'org-tree-next-heading)
     (define-key map (kbd "p") #'org-tree-previous-heading)
-    (define-key map (kbd "C-S-<up>") #'org-tree-move-subtree-up)
-    (define-key map (kbd "C-S-<down>") #'org-tree-move-subtree-down)
     (make-composed-keymap map special-mode-map))
   "Keymap for `org-tree-mode'.")
 
@@ -52,6 +48,8 @@
   "Mode for `org-tree'.
 
 \\{org-tree-mode-map}"
+  :group 'org-tree
+  :interactive nil
   (hl-line-mode)
   (setq-local cursor-type 'bar)
   (setq tabulated-list-format [("Tree" 100)])
@@ -78,10 +76,8 @@ This includes `org-todo' heads and `org-num' numbering."
 (defvar org-tree-timer nil
   "Timer to update headings and cursor position.")
 
-(defvar org-tree-last-point 0
+(defvar-local org-tree-last-point 0
   "Cursor position from the last run of `post-command-hook'.")
-
-(make-variable-buffer-local 'org-tree-last-point)
 
 (define-button-type 'org-tree
   'action 'org-tree-jump
@@ -106,7 +102,8 @@ This includes `org-todo' heads and `org-num' numbering."
         (jit-lock-mode 1)
         (jit-lock-fontify-now))
       (let* ((headings (org-tree-get-headings))
-             (tree-head-line (or (org-get-title)
+             (tree-head-line (or (cadar (org-collect-keywords
+                                         '("title")))
                                  "Org-Tree"))
              (tree-mode-line (format "Org-Tree - %s"
                                      (file-name-nondirectory
@@ -210,7 +207,8 @@ This includes `org-todo' heads and `org-num' numbering."
               (tree-window (get-buffer-window tree-buffer))
               (heading (org-tree-heading-number))
               (headings (org-tree-get-headings))
-              (tree-head-line (or (org-get-title)
+              (tree-head-line (or (cadar (org-collect-keywords
+                                          '("title")))
                                   "Org-Tree"))
               (tree-mode-line (format "Org-Tree - %s"
                                       (file-name-nondirectory
@@ -330,7 +328,7 @@ This is added to `'kill-buffer-hook' for each base-buffer."
     (push-button nil t)
     (condition-case nil
         (org-move-subtree-down ARG)
-      ('user-error (message "Cannot move past superior level or buffer limit")))
+      (user-error (message "Cannot move past superior level or buffer limit")))
     (org-tree-update-line)
     (select-window tree-window)))
 
@@ -341,7 +339,7 @@ This is added to `'kill-buffer-hook' for each base-buffer."
     (push-button nil t)
     (condition-case nil
         (org-move-subtree-up ARG)
-      ('user-error (message "Cannot move past superior level or buffer limit")))
+      (user-error (message "Cannot move past superior level or buffer limit")))
     (org-tree-update-line)
     (select-window tree-window)))
 
