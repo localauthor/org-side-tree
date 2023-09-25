@@ -29,6 +29,8 @@
 ;; Inspired by and modeled on `org-sidebar-tree' from org-sidebar by
 ;; @alphapapa and `embark-live' from Embark by @oantolin.
 
+;; ADD: org-move-subtree-up -down
+
 ;;; Code:
 
 (require 'org)
@@ -37,9 +39,12 @@
 (defvar org-tree-mode-map
   (let ((map (make-sparse-keymap)))
     (define-key map (kbd "<return>") #'push-button)
+    (define-key map (kbd "RET") #'push-button)
     (define-key map (kbd "<mouse-1>") #'push-button)
     (define-key map (kbd "n") #'org-tree-next-heading)
     (define-key map (kbd "p") #'org-tree-previous-heading)
+    (define-key map (kbd "C-S-<up>") #'org-tree-move-subtree-up)
+    (define-key map (kbd "C-S-<down>") #'org-tree-move-subtree-down)
     (make-composed-keymap map special-mode-map))
   "Keymap for `org-tree-mode'.")
 
@@ -101,6 +106,8 @@ This includes `org-todo' heads and `org-num' numbering."
         (jit-lock-mode 1)
         (jit-lock-fontify-now))
       (let* ((headings (org-tree-get-headings))
+             (tree-head-line (or (org-get-title)
+                                 "Org-Tree"))
              (tree-mode-line (format "Org-Tree - %s"
                                      (file-name-nondirectory
                                       buffer-file-name))))
@@ -108,6 +115,7 @@ This includes `org-todo' heads and `org-num' numbering."
           (org-tree-mode)
           (setq tabulated-list-entries headings)
           (tabulated-list-print t t)
+          (setq header-line-format tree-head-line)
           (setq mode-line-format tree-mode-line))))
     (org-tree-set-timer)
     (pop-to-buffer tree-buffer)
@@ -133,7 +141,7 @@ This includes `org-todo' heads and `org-num' numbering."
                  (end (line-end-position))
                  (line (org-tree-overlays-to-text beg end)))
             (push (list
-                   (org-get-heading t)
+                   (org-get-heading)
                    (vector (cons (if (and org-tree-add-overlays
                                           line)
                                      line
@@ -201,8 +209,15 @@ This includes `org-todo' heads and `org-num' numbering."
                                     (buffer-name))))
               (tree-window (get-buffer-window tree-buffer))
               (heading (org-tree-heading-number))
-              (headings (org-tree-get-headings)))
+              (headings (org-tree-get-headings))
+              (tree-head-line (or (org-get-title)
+                                  "Org-Tree"))
+              (tree-mode-line (format "Org-Tree - %s"
+                                      (file-name-nondirectory
+                                       buffer-file-name))))
     (with-selected-window tree-window
+      (setq header-line-format tree-head-line)
+      (setq mode-line-format tree-mode-line)
       (setq tabulated-list-entries headings)
       (tabulated-list-print t t)
       (goto-char (point-min))
@@ -275,7 +290,6 @@ This is added to `'kill-buffer-hook' for each base-buffer."
     (org-fold-hide-drawer-all)
     (goto-char pos)
     (beginning-of-line)
-    (recenter-top-bottom 'top)
     (when org-tree-narrow-on-jump
       (org-narrow-to-element))
     (when (or (eq this-command 'org-tree-next-heading)
@@ -308,6 +322,28 @@ This is added to `'kill-buffer-hook' for each base-buffer."
     (when org-tree-narrow-on-jump
       (unless (org-before-first-heading-p)
         (org-narrow-to-subtree)))))
+
+(defun org-tree-move-subtree-down (&optional ARG)
+  "Move the current subtree down past ARG headlines of the same level."
+  (interactive "p")
+  (let ((tree-window (selected-window)))
+    (push-button nil t)
+    (condition-case nil
+        (org-move-subtree-down ARG)
+      ('user-error (message "Cannot move past superior level or buffer limit")))
+    (org-tree-update-line)
+    (select-window tree-window)))
+
+(defun org-tree-move-subtree-up (&optional ARG)
+  "Move the current subtree up past ARG headlines of the same level."
+  (interactive "p")
+  (let ((tree-window (selected-window)))
+    (push-button nil t)
+    (condition-case nil
+        (org-move-subtree-up ARG)
+      ('user-error (message "Cannot move past superior level or buffer limit")))
+    (org-tree-update-line)
+    (select-window tree-window)))
 
 (provide 'org-tree)
 ;;; org-tree.el ends here
