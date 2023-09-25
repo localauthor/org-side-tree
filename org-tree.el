@@ -7,7 +7,7 @@
 ;; License: GPL-3.0-or-later
 ;; Version: 0.4
 ;; Homepage: https://github.com/localauthor/org-tree
-;; Package-Requires: ((emacs "27.2"))
+;; Package-Requires: ((emacs "28.1"))
 
 ;; This program is free software; you can redistribute it and/or modify it
 ;; under the terms of the GNU General Public License as published by the Free
@@ -67,6 +67,11 @@
   :group 'org-tree
   :type 'number)
 
+(defcustom org-tree-enable-folding t
+  "Enable folding in Org-Tree buffers."
+  :group 'org-tree
+  :type 'boolean)
+
 (defcustom org-tree-add-overlays t
   "When non-nil, overlays are included in tree-buffer headings.
 This includes `org-todo' heads and `org-num' numbering."
@@ -112,6 +117,8 @@ This includes `org-todo' heads and `org-num' numbering."
           (org-tree-mode)
           (setq tabulated-list-entries headings)
           (tabulated-list-print t t)
+          (when org-tree-enable-folding
+            (outline-minor-mode 1))
           (setq header-line-format tree-head-line)
           (setq mode-line-format tree-mode-line))))
     (org-tree-set-timer)
@@ -214,10 +221,15 @@ This includes `org-todo' heads and `org-num' numbering."
                                       (file-name-nondirectory
                                        buffer-file-name))))
     (with-selected-window tree-window
+      (when org-tree-enable-folding
+        (org-tree-get-fold-state))
       (setq header-line-format tree-head-line)
       (setq mode-line-format tree-mode-line)
       (setq tabulated-list-entries headings)
       (tabulated-list-print t t)
+      (when org-tree-enable-folding
+        (outline-minor-mode 1)
+        (org-tree-restore-fold-state))
       (goto-char (point-min))
       (org-tree-go-to-heading heading)
       (beginning-of-line)
@@ -269,7 +281,47 @@ This is added to `'kill-buffer-hook' for each base-buffer."
   "Go to Nth heading."
   (goto-char (point-min))
   (dotimes (_x (1- n))
-    (outline-next-heading)))
+    (outline-next-heading))
+  (when-let (ol (car (overlays-at (point))))
+    (when (overlay-get ol 'invisible)
+      (outline-previous-visible-heading 1))))
+
+(defvar-local org-tree-fold-state nil)
+
+(defun org-tree-get-fold-state ()
+  "Register fold state of tree-buffer in `org-tree-fold-state'."
+  (interactive)
+  (hl-line-mode -1)
+  (setq org-tree-fold-state nil)
+  (goto-char (point-min))
+  (let ((total (count-lines (point-min) (point-max) t)))
+    (while (< (count-lines (point-min) (point) t)
+              total)
+      (end-of-line)
+      (if-let (ol (car (overlays-at (point))))
+          (if (overlay-get ol 'invisible)
+              (progn
+                (push 1 org-tree-fold-state)
+                (outline-next-visible-heading 1))
+            (push 0 org-tree-fold-state)
+            (forward-line))
+        (push 0 org-tree-fold-state)
+        (forward-line))))
+  (setq org-tree-fold-state (nreverse org-tree-fold-state))
+  (hl-line-mode 1))
+
+(defun org-tree-restore-fold-state ()
+  "Restore fold state of tree-buffer."
+  (interactive)
+  (outline-show-all)
+  (goto-char (point-min))
+  (dolist (x org-tree-fold-state)
+    (if (= x 1)
+        (progn
+          (outline-cycle)
+          (outline-next-visible-heading 1))
+      (forward-line)))
+  (goto-char (point-min)))
 
 (defun org-tree-jump (&optional _)
   "Jump to headline."
