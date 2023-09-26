@@ -63,12 +63,17 @@
   :type 'boolean)
 
 (defcustom org-tree-timer-delay .1
-  "Timer to update headings and cursor position."
+  "Timer to update headings and cursor position.
+Changes to this variable will not take effect if there are any
+live tree buffers. Kill and reopen tree buffers to see effects."
   :group 'org-tree
   :type 'number)
 
 (defcustom org-tree-enable-folding t
-  "Enable folding in Org-Tree buffers."
+  "Enable folding in Org-Tree buffers.
+This feature can cause lag in large buffers. Try increasing
+`org-tree-timer-delay' to .5 seconds. Or, folding can be toggled locally
+with `org-tree-toggle-enable-folding-locally'."
   :group 'org-tree
   :type 'boolean)
 
@@ -113,11 +118,14 @@ This includes `org-todo' heads and `org-num' numbering."
              (tree-mode-line (format "Org-Tree - %s"
                                      (file-name-nondirectory
                                       buffer-file-name))))
+        (when (default-value org-tree-enable-folding)
+          (setq-local org-tree-enable-folding t))
         (with-current-buffer tree-buffer
           (org-tree-mode)
           (setq tabulated-list-entries headings)
           (tabulated-list-print t t)
-          (when org-tree-enable-folding
+          (when (default-value org-tree-enable-folding)
+            (setq-local org-tree-enable-folding t)
             (outline-minor-mode 1))
           (setq header-line-format tree-head-line)
           (setq mode-line-format tree-mode-line))))
@@ -322,6 +330,28 @@ This is added to `'kill-buffer-hook' for each base-buffer."
           (outline-next-visible-heading 1))
       (forward-line)))
   (goto-char (point-min)))
+
+(defun org-tree-toggle-enable-folding-locally ()
+  "Toggle `org-tree-enable-folding' for the current buffer."
+  (interactive)
+  (cond
+   ((and (org-tree-buffer-p)
+         (bound-and-true-p org-tree-enable-folding))
+    (progn
+      (setq-local org-tree-enable-folding nil)
+      (outline-minor-mode -1)
+      (with-current-buffer (substring (buffer-name) 6)
+        (setq-local org-tree-enable-folding nil))))
+   ((and (org-tree-buffer-p)
+         (not org-tree-enable-folding))
+    (progn
+      (setq-local org-tree-enable-folding t)
+      (outline-minor-mode 1)
+      (with-current-buffer (substring (buffer-name) 6)
+        (setq-local org-tree-enable-folding t))))
+   ((org-tree-has-tree-p)
+    (with-selected-window (get-buffer-window (org-tree-has-tree-p))
+      (org-tree-toggle-enable-folding-locally)))))
 
 (defun org-tree-jump (&optional _)
   "Jump to headline."
