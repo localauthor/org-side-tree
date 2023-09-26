@@ -411,27 +411,73 @@ This is added to `'kill-buffer-hook' for each base-buffer."
       (unless (org-before-first-heading-p)
         (org-narrow-to-subtree)))))
 
-(defun org-tree-move-subtree-down (&optional ARG)
-  "Move the current subtree down past ARG headlines of the same level."
-  (interactive "p")
-  (let ((tree-window (selected-window)))
-    (push-button nil t)
-    (condition-case nil
-        (org-move-subtree-down ARG)
-      (user-error (message "Cannot move past superior level or buffer limit")))
-    (org-tree-update-line)
-    (select-window tree-window)))
+(defmacro org-tree-emulate (name doc fn arg error-fn)
+  "Define function NAME to emulate Org-Mode function FN.
+DOC is a doc string. ERROR-FN is the body of a `condition-case'
+handler. ARG can be non-nil for special cases."
+  `(defun ,(intern (symbol-name name)) ,(when arg `(&optional ARG))
+     ,doc
+     (interactive,(when arg "p"))
+     (let ((tree-window (selected-window)))
+       (push-button nil t)
+       (condition-case nil
+           ,fn
+         (user-error ,error-fn))
+       (org-tree-update-line)
+       (select-window tree-window))))
 
-(defun org-tree-move-subtree-up (&optional ARG)
-  "Move the current subtree up past ARG headlines of the same level."
-  (interactive "p")
-  (let ((tree-window (selected-window)))
-    (push-button nil t)
-    (condition-case nil
-        (org-move-subtree-up ARG)
-      (user-error (message "Cannot move past superior level or buffer limit")))
-    (org-tree-update-line)
-    (select-window tree-window)))
+(org-tree-emulate
+ org-tree-move-subtree-down
+ "Move the current subtree down past ARG headlines of the same level."
+ (org-move-subtree-down ARG) t
+ (message "Cannot move past superior level or buffer limit"))
+
+(org-tree-emulate
+ org-tree-move-subtree-up
+ "Move the current subtree up past ARG headlines of the same level."
+ (org-move-subtree-up ARG) t
+ (message "Cannot move past superior level or buffer limit"))
+
+(org-tree-emulate
+ org-tree-next-todo
+ "Change the TODO state of heading."
+ (org-todo 'right) nil nil)
+
+(org-tree-emulate
+ org-tree-previous-todo
+ "Change the TODO state of heading."
+ (org-todo 'left) nil nil)
+
+(org-tree-emulate
+ org-tree-priority-up
+ "Change the priority state of heading."
+ (org-priority-up) nil nil)
+
+(org-tree-emulate
+ org-tree-priority-down
+ "Change the priority state of heading."
+ (org-priority-down) nil nil)
+
+(org-tree-emulate
+ org-tree-promote-subtree
+ "Promote the entire subtree."
+ (org-promote-subtree) nil
+ (message "Cannot promote to level 0"))
+
+(org-tree-emulate
+ org-tree-demote-subtree
+ "Demote the entire subtree."
+ (org-demote-subtree) nil nil)
+
+(org-tree-emulate
+ org-tree-do-promote
+ "Promote the current heading higher up the tree."
+ (org-do-promote) nil nil)
+
+(org-tree-emulate
+ org-tree-do-demote
+ "Demote the current heading lower down the tree."
+ (org-do-demote) nil nil)
 
 (provide 'org-tree)
 ;;; org-tree.el ends here
