@@ -126,6 +126,8 @@ This includes `org-todo' heads and `org-num' numbering."
           (tabulated-list-print t t)
           (when (default-value org-tree-enable-folding)
             (setq-local org-tree-enable-folding t)
+            ;; preserve org font-locking
+            (setq-local outline-minor-mode-highlight nil)
             (outline-minor-mode 1))
           (setq header-line-format tree-head-line)
           (setq mode-line-format tree-mode-line))))
@@ -236,6 +238,7 @@ This includes `org-todo' heads and `org-num' numbering."
       (setq tabulated-list-entries headings)
       (tabulated-list-print t t)
       (when org-tree-enable-folding
+        (setq-local outline-minor-mode-highlight nil)
         (outline-minor-mode 1)
         (org-tree-restore-fold-state))
       (goto-char (point-min))
@@ -346,6 +349,7 @@ This is added to `'kill-buffer-hook' for each base-buffer."
          (not org-tree-enable-folding))
     (progn
       (setq-local org-tree-enable-folding t)
+      (setq-local outline-minor-mode-highlight nil)
       (outline-minor-mode 1)
       (with-current-buffer (substring (buffer-name) 6)
         (setq-local org-tree-enable-folding t))))
