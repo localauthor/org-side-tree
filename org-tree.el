@@ -7,7 +7,7 @@
 ;; License: GPL-3.0-or-later
 ;; Version: 0.4
 ;; Homepage: https://github.com/localauthor/org-tree
-;; Package-Requires: ((emacs "28.1"))
+;; Package-Requires: ((emacs "27.2"))
 
 ;; This program is free software; you can redistribute it and/or modify it
 ;; under the terms of the GNU General Public License as published by the Free
@@ -326,7 +326,7 @@ This is added to `'kill-buffer-hook' for each base-buffer."
   (dolist (x org-tree-fold-state)
     (if (= x 1)
         (progn
-          (outline-cycle)
+          (outline-hide-subtree)
           (outline-next-visible-heading 1))
       (forward-line)))
   (goto-char (point-min)))
@@ -358,7 +358,8 @@ This is added to `'kill-buffer-hook' for each base-buffer."
   (interactive)
   (let ((tree-window (selected-window))
         (buffer (get-text-property (point) 'buffer))
-        (pos (get-text-property (point) 'pos)))
+        (pos (get-text-property (point) 'pos))
+        (recenter-positions '(.22)))
     (unless (buffer-live-p buffer)
       (when (yes-or-no-p
              "Base buffer has been killed. Kill org-tree window?")
@@ -370,6 +371,7 @@ This is added to `'kill-buffer-hook' for each base-buffer."
     (org-fold-hide-drawer-all)
     (goto-char pos)
     (beginning-of-line)
+    (recenter-top-bottom)
     (when org-tree-narrow-on-jump
       (org-narrow-to-element))
     (when (or (eq this-command 'org-tree-next-heading)
