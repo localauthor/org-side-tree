@@ -179,7 +179,7 @@ This includes `org-todo' heads and `org-num' numbering."
                                         pos ,(point-marker)
                                         keymap org-tree-mode-map))))
                   headings)
-            (goto-char (1+ (line-end-position)))))))
+            (goto-char (1+ end))))))
     (unless headings
       (user-error "No headings"))
     (nreverse headings)))
@@ -446,6 +446,7 @@ handler. ARG can be non-nil for special cases."
        (condition-case nil
            ,fn
          (user-error ,error-fn))
+       (sit-for .3)
        (org-tree-update-line)
        (select-window tree-window))))
 
