@@ -190,9 +190,9 @@ This includes `org-todo' heads and `org-num' numbering."
                                         keymap org-tree-mode-map))))
                   headings)
             (goto-char (1+ end))))))
-    (unless headings
-      (user-error "No headings"))
-    (nreverse headings)))
+    (if headings
+        (nreverse headings)
+      (list (list "" (vector "[No headings]"))))))
 
 (defun org-tree-overlays-to-text (beg end)
   "Return line from BEG to END with overlays as text."
