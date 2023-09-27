@@ -62,6 +62,13 @@
   :group 'org
   :prefix "org-tree")
 
+(defcustom org-tree-display-side 'left
+  "Side of frame where Org-Tree buffer will display."
+  :type '(choice
+	  (const :tag "Left" left)
+	  (const :tag "Right" right)
+          (const :tag "Bottom" bottom)))
+
 (defcustom org-tree-narrow-on-jump nil
   "When non-nil, source buffer is narrowed to subtree."
   :type 'boolean)
@@ -146,7 +153,10 @@ This includes `org-todo' heads and `org-num' numbering."
           (setq header-line-format tree-head-line)
           (setq mode-line-format tree-mode-line))))
     (org-tree-set-timer)
-    (pop-to-buffer tree-buffer)
+    (pop-to-buffer tree-buffer
+                   (display-buffer-in-side-window
+                    tree-buffer
+                    `((side . ,org-tree-display-side))))
     (set-window-fringes (get-buffer-window tree-buffer) 1 1)
     (org-tree-go-to-heading heading)
     (beginning-of-line)
