@@ -229,7 +229,7 @@ This includes `org-todo' heads and `org-num' numbering."
            #'org-tree-timer-function))))
 
 (defun org-tree-timer-function ()
-  "Timer for `org-tree-update-line'."
+  "Timer for `org-tree-update'."
   (if (not (org-tree-buffer-list))
       (progn
         (cancel-timer org-tree-timer)
@@ -245,10 +245,10 @@ This includes `org-todo' heads and `org-num' numbering."
                                                  org-shiftmetaleft
                                                  org-shiftup
                                                  org-shiftdown)))))
-      (org-tree-update-line)
+      (org-tree-update)
       (setq org-tree-last-point (point)))))
 
-(defun org-tree-update-line ()
+(defun org-tree-update ()
   "Refresh cursor position in tree-buffer."
   (when-let* ((tree-buffer (get-buffer
                             (format "<tree>%s"
@@ -426,7 +426,7 @@ This is added to `'kill-buffer-hook' for each base-buffer."
         (push-button nil t))
     (widen)
     (org-next-visible-heading 1)
-    (org-tree-update-line)
+    (org-tree-update)
     (if org-tree-narrow-on-jump
         (org-narrow-to-subtree))))
 
@@ -439,7 +439,7 @@ This is added to `'kill-buffer-hook' for each base-buffer."
         (push-button nil t))
     (widen)
     (org-previous-visible-heading 1)
-    (org-tree-update-line)
+    (org-tree-update)
     (when org-tree-narrow-on-jump
       (unless (org-before-first-heading-p)
         (org-narrow-to-subtree)))))
@@ -457,7 +457,7 @@ handler. ARG can be non-nil for special cases."
            ,fn
          (user-error ,error-fn))
        (sit-for .3)
-       (org-tree-update-line)
+       (org-tree-update)
        (select-window tree-window))))
 
 (org-tree-emulate
