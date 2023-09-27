@@ -1,4 +1,4 @@
-;;; org-tree.el --- Navigate Org headings via tree outline           -*- lexical-binding: t; -*-
+;;; org-tree.el --- Navigate Org headings via sidebar tree           -*- lexical-binding: t; -*-
 
 ;; Copyright (C) 2023  Grant Rosson
 
@@ -57,30 +57,44 @@
   (setq fringe-indicator-alist
         '((truncation nil nil))))
 
+(defgroup org-tree nil
+  "Navigate Org headings via sidebar tree."
+  :group 'org
+  :prefix "org-tree")
+
 (defcustom org-tree-narrow-on-jump nil
   "When non-nil, source buffer is narrowed to subtree."
-  :group 'org-tree
   :type 'boolean)
 
 (defcustom org-tree-timer-delay .1
   "Timer to update headings and cursor position.
 Changes to this variable will not take effect if there are any
 live tree buffers. Kill and reopen tree buffers to see effects."
-  :group 'org-tree
   :type 'number)
+
+(defcustom org-tree-recenter-position .25
+  "Setting to determine heading position after `org-tree-jump'.
+Top is `scroll-margin' lines from the true window top. Middle
+redraws the frame and centers point vertically within the window.
+Integer number moves current line to the specified absolute
+window-line. Float number between 0.0 and 1.0 means the
+percentage of the screen space from the top."
+  :type '(choice
+	  (const :tag "Top" top)
+	  (const :tag "Middle" middle)
+	  (integer :tag "Line number")
+	  (float :tag "Percentage")))
 
 (defcustom org-tree-enable-folding t
   "Enable folding in Org-Tree buffers.
 This feature can cause lag in large buffers. Try increasing
 `org-tree-timer-delay' to .5 seconds. Or, folding can be toggled locally
 with `org-tree-toggle-enable-folding-locally'."
-  :group 'org-tree
   :type 'boolean)
 
 (defcustom org-tree-add-overlays t
   "When non-nil, overlays are included in tree-buffer headings.
 This includes `org-todo' heads and `org-num' numbering."
-  :group 'org-tree
   :type 'boolean)
 
 (defvar org-tree-timer nil
@@ -212,7 +226,15 @@ This includes `org-todo' heads and `org-num' numbering."
         (setq org-tree-timer nil))
     (unless (or (minibufferp)
                 (not (org-tree-has-tree-p))
-                (equal (point) org-tree-last-point))
+                (and (equal (point) org-tree-last-point)
+                     (not (member last-command '(org-metaleft
+                                                 org-metaright
+                                                 org-shiftleft
+                                                 org-shiftright
+                                                 org-shiftmetaright
+                                                 org-shiftmetaleft
+                                                 org-shiftup
+                                                 org-shiftdown)))))
       (org-tree-update-line)
       (setq org-tree-last-point (point)))))
 
@@ -365,7 +387,7 @@ This is added to `'kill-buffer-hook' for each base-buffer."
   (let ((tree-window (selected-window))
         (buffer (get-text-property (point) 'buffer))
         (pos (get-text-property (point) 'pos))
-        (recenter-positions '(.22)))
+        (recenter-positions (list org-tree-recenter-position)))
     (unless (buffer-live-p buffer)
       (when (yes-or-no-p
              "Base buffer has been killed. Kill org-tree window?")
@@ -378,10 +400,11 @@ This is added to `'kill-buffer-hook' for each base-buffer."
     (goto-char pos)
     (beginning-of-line)
     (recenter-top-bottom)
+    (pulse-momentary-highlight-one-line nil 'highlight)
     (when org-tree-narrow-on-jump
       (org-narrow-to-element))
-    (when (or (eq this-command 'org-tree-next-heading)
-              (eq this-command 'org-tree-previous-heading))
+    (when (member this-command '(org-tree-previous-heading
+                                 org-tree-next-heading))
       (select-window tree-window))))
 
 (defun org-tree-next-heading ()
