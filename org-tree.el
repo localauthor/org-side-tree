@@ -133,13 +133,13 @@ This includes `org-todo' heads and `org-num' numbering."
   (let* ((tree-name (format "<tree>%s" (buffer-name)))
          (tree-buffer (get-buffer tree-name))
          (heading (org-tree-heading-number)))
+    (save-restriction
+      (widen)
+      (jit-lock-mode 1)
+      (jit-lock-fontify-now))
     (unless (buffer-live-p tree-buffer)
       (setq tree-buffer (generate-new-buffer tree-name))
       (add-hook 'kill-buffer-hook #'org-tree-cleanup nil t)
-      (save-restriction
-        (widen)
-        (jit-lock-mode 1)
-        (jit-lock-fontify-now))
       (let* ((headings (org-tree-get-headings))
              (tree-head-line (or (cadar (org-collect-keywords
                                          '("title")))
@@ -172,7 +172,6 @@ This includes `org-todo' heads and `org-num' numbering."
 
 (defun org-tree-get-headings ()
   "Return a list of outline headings."
-  (interactive)
   (let* ((heading-regexp (concat "^\\(?:"
                                  org-outline-regexp
                                  "\\)"))
@@ -331,7 +330,6 @@ This is added to `'kill-buffer-hook' for each base-buffer."
 
 (defun org-tree-heading-number ()
   "Return the number of the current heading."
-  (interactive)
   (let ((count 0)
         (end (save-excursion
                (unless (org-at-heading-p)
@@ -445,7 +443,9 @@ This is added to `'kill-buffer-hook' for each base-buffer."
   (interactive)
   (if (org-tree-buffer-p)
       (progn
-        (forward-line 1)
+        (if org-tree-enable-folding
+            (outline-next-visible-heading 1)
+          (forward-line 1))
         (push-button nil t))
     (widen)
     (org-next-visible-heading 1)
@@ -458,7 +458,9 @@ This is added to `'kill-buffer-hook' for each base-buffer."
   (interactive)
   (if (org-tree-buffer-p)
       (progn
-        (forward-line -1)
+        (if org-tree-enable-folding
+            (outline-previous-visible-heading 1)
+          (forward-line -1))
         (push-button nil t))
     (widen)
     (org-previous-visible-heading 1)
