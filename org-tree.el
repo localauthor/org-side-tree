@@ -1,4 +1,4 @@
-;;; org-tree.el --- Navigate Org headings via sidebar tree           -*- lexical-binding: t; -*-
+;;; org-tree.el --- Navigate Org outlines in side window tree          -*- lexical-binding: t; -*-
 
 ;; Copyright (C) 2023  Grant Rosson
 
@@ -133,11 +133,11 @@ This includes `org-todo' heads and `org-num' numbering."
   (let* ((tree-name (format "<tree>%s" (buffer-name)))
          (tree-buffer (get-buffer tree-name))
          (heading (org-tree-heading-number)))
-    (save-restriction
-      (widen)
-      (jit-lock-mode 1)
-      (jit-lock-fontify-now))
     (unless (buffer-live-p tree-buffer)
+      (save-restriction
+        (widen)
+        (jit-lock-mode 1)
+        (jit-lock-fontify-now))
       (setq tree-buffer (generate-new-buffer tree-name))
       (add-hook 'kill-buffer-hook #'org-tree-cleanup nil t)
       (let* ((headings (org-tree-get-headings))
