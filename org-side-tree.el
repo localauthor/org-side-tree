@@ -256,6 +256,7 @@ This includes `org-todo' heads and `org-num' numbering."
         (cancel-timer org-side-tree-timer)
         (setq org-side-tree-timer nil))
     (unless (or (minibufferp)
+                (not org-side-tree-enable-auto-update)
                 (unless (and org-side-tree-persistent
                              (derived-mode-p 'org-mode)
                              (get-buffer-window "*Org-Side-Tree*"))
@@ -507,7 +508,8 @@ handler. ARG can be non-nil for special cases."
   `(defun ,(intern (symbol-name name)) ,(when arg `(&optional ARG))
      ,doc
      (interactive,(when arg "p"))
-     (let ((tree-window (selected-window)))
+     (let ((tree-window (selected-window))
+           (org-side-tree-narrow-on-jump nil))
        (beginning-of-line)
        (push-button nil t)
        (condition-case nil
