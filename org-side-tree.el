@@ -206,7 +206,7 @@ This includes `org-todo' heads and `org-num' numbering."
                                    (buffer-substring beg end))
                                  `(type org-side-tree
                                         buffer ,buffer
-                                        pos ,(point-marker)
+                                        marker ,(point-marker)
                                         keymap org-side-tree-mode-map))))
                   headings)
             (goto-char (1+ end))))))
@@ -275,18 +275,20 @@ This includes `org-todo' heads and `org-num' numbering."
 (defun org-side-tree-toggle-auto-update ()
   "Toggle `org-side-tree-enable-auto-update' for the current buffer."
   (interactive)
-  (cond
-   ((and (org-side-tree-has-tree-p))
-    (if (bound-and-true-p org-side-tree-enable-auto-update)
-        (progn
-          (setq-local org-side-tree-enable-auto-update nil)
-          (message "Auto-update disabled locally"))
-      (setq-local org-side-tree-enable-auto-update t)
-      (org-side-tree-set-timer)
-      (message "Auto-update enabled locally")))
-   ((and (org-side-tree-buffer-p))
-    (with-current-buffer (substring (buffer-name) 6)
-      (org-side-tree-toggle-auto-update)))))
+  (let ((base-buffer (or (save-excursion
+                           (goto-char (point-min))
+                           (get-text-property (point) 'buffer))
+                         (current-buffer))))
+    (if (org-side-tree-buffer-p)
+        (with-current-buffer base-buffer
+          (org-side-tree-toggle-auto-update))
+      (if (bound-and-true-p org-side-tree-enable-auto-update)
+          (progn
+            (setq-local org-side-tree-enable-auto-update nil)
+            (message "Auto-update disabled locally"))
+        (setq-local org-side-tree-enable-auto-update t)
+        (org-side-tree-set-timer)
+        (message "Auto-update enabled locally")))))
 
 (defun org-side-tree-update ()
   "Update tree-buffer."
@@ -414,34 +416,41 @@ This is added to `'kill-buffer-hook' for each base-buffer."
 (defun org-side-tree-toggle-folding ()
   "Toggle `org-side-tree-enable-folding' for the current buffer."
   (interactive)
-  (cond
-   ((and (org-side-tree-buffer-p)
-         (bound-and-true-p org-side-tree-enable-folding))
-    (progn
-      (setq-local org-side-tree-enable-folding nil)
-      (outline-minor-mode -1)
-      (with-current-buffer (substring (buffer-name) 6)
-        (setq-local org-side-tree-enable-folding nil))
-      (message "Folding disabled locally")))
-   ((and (org-side-tree-buffer-p)
-         (not org-side-tree-enable-folding))
-    (progn
-      (setq-local org-side-tree-enable-folding t)
-      (setq-local outline-minor-mode-highlight nil)
-      (outline-minor-mode 1)
-      (with-current-buffer (substring (buffer-name) 6)
-        (setq-local org-side-tree-enable-folding t))
-      (message "Folding enabled locally")))
-   ((org-side-tree-has-tree-p)
-    (with-selected-window (get-buffer-window (org-side-tree-has-tree-p))
-      (org-side-tree-toggle-folding)))))
+  (let ((base-buffer (or (save-excursion
+                           (goto-char (point-min))
+                           (get-text-property (point) 'buffer))
+                         (current-buffer))))
+    (cond
+     ((and (org-side-tree-buffer-p)
+           (bound-and-true-p org-side-tree-enable-folding))
+      (progn
+        (setq-local org-side-tree-enable-folding nil)
+        (outline-minor-mode -1)
+        (with-current-buffer base-buffer
+          (setq-local org-side-tree-enable-folding nil))
+        (message "Folding disabled locally")))
+     ((and (org-side-tree-buffer-p)
+           (not org-side-tree-enable-folding))
+      (progn
+        (setq-local org-side-tree-enable-folding t)
+        (setq-local outline-minor-mode-highlight nil)
+        (outline-minor-mode 1)
+        (with-current-buffer base-buffer
+          (setq-local org-side-tree-enable-folding t))
+        (message "Folding enabled locally")))
+     (t
+      (if org-side-tree-persistent
+          (with-current-buffer (get-buffer "*Org-Side-Tree*")
+            (org-side-tree-toggle-folding))
+        (with-current-buffer (get-buffer (org-side-tree-has-tree-p))
+          (org-side-tree-toggle-folding)))))))
 
 (defun org-side-tree-jump (&optional _)
   "Jump to headline."
   (interactive)
   (let ((tree-window (selected-window))
         (buffer (get-text-property (point) 'buffer))
-        (pos (get-text-property (point) 'pos))
+        (marker (get-text-property (point) 'marker))
         (recenter-positions (list org-side-tree-recenter-position)))
     (unless (buffer-live-p buffer)
       (when (yes-or-no-p
@@ -449,10 +458,8 @@ This is added to `'kill-buffer-hook' for each base-buffer."
         (kill-buffer-and-window))
       (keyboard-quit))
     (pop-to-buffer buffer)
-    (widen)
-    (org-fold-show-all)
-    (org-fold-hide-drawer-all)
-    (goto-char pos)
+    (org-goto-marker-or-bmk marker)
+    (org-fold-show-subtree)
     (beginning-of-line)
     (recenter-top-bottom)
     (pulse-momentary-highlight-one-line nil 'highlight)
