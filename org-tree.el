@@ -96,7 +96,8 @@ percentage of the screen space from the top."
   "Enable folding in Org-Tree buffers.
 This feature can cause lag in large buffers. Try increasing
 `org-tree-timer-delay' to .5 seconds. Or, folding can be toggled locally
-with `org-tree-toggle-enable-folding-locally'."
+with `org-tree-toggle-folding'."
+  :type 'boolean)
   :type 'boolean)
 
 (defcustom org-tree-add-overlays t
@@ -366,7 +367,7 @@ This is added to `'kill-buffer-hook' for each base-buffer."
       (forward-line)))
   (goto-char (point-min)))
 
-(defun org-tree-toggle-enable-folding-locally ()
+(defun org-tree-toggle-folding ()
   "Toggle `org-tree-enable-folding' for the current buffer."
   (interactive)
   (cond
@@ -377,7 +378,7 @@ This is added to `'kill-buffer-hook' for each base-buffer."
       (outline-minor-mode -1)
       (with-current-buffer (substring (buffer-name) 6)
         (setq-local org-tree-enable-folding nil))
-      (message "Folding disabled")))
+      (message "Folding disabled locally")))
    ((and (org-tree-buffer-p)
          (not org-tree-enable-folding))
     (progn
@@ -386,10 +387,10 @@ This is added to `'kill-buffer-hook' for each base-buffer."
       (outline-minor-mode 1)
       (with-current-buffer (substring (buffer-name) 6)
         (setq-local org-tree-enable-folding t))
-      (message "Folding enabled")))
+      (message "Folding enabled locally")))
    ((org-tree-has-tree-p)
     (with-selected-window (get-buffer-window (org-tree-has-tree-p))
-      (org-tree-toggle-enable-folding-locally)))))
+      (org-tree-toggle-folding)))))
 
 (defun org-tree-jump (&optional _)
   "Jump to headline."
