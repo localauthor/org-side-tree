@@ -79,7 +79,7 @@
   "When non-nil, source buffer is narrowed to subtree."
   :type 'boolean)
 
-(defcustom org-side-tree-timer-delay .1
+(defcustom org-side-tree-timer-delay .3
   "Timer to update headings and cursor position.
 Changes to this variable will not take effect if there are any
 live tree buffers. Kill and reopen tree buffers to see effects."
