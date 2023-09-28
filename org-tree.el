@@ -79,30 +79,35 @@ Changes to this variable will not take effect if there are any
 live tree buffers. Kill and reopen tree buffers to see effects."
   :type 'number)
 
-(defcustom org-tree-recenter-position .25
-  "Setting to determine heading position after `org-tree-jump'.
+(defcustom org-tree-persistent nil
+  "When non-nil, use a single buffer for all trees.
+When nil, each Org buffer will have its own tree-buffer."
+  :type 'boolean)
+
+   (defcustom org-tree-recenter-position .25
+     "Setting to determine heading position after `org-tree-jump'.
 Top is `scroll-margin' lines from the true window top. Middle
 redraws the frame and centers point vertically within the window.
 Integer number moves current line to the specified absolute
 window-line. Float number between 0.0 and 1.0 means the
 percentage of the screen space from the top."
-  :type '(choice
-	  (const :tag "Top" top)
-	  (const :tag "Middle" middle)
-	  (integer :tag "Line number")
-	  (float :tag "Percentage")))
+     :type '(choice
+	     (const :tag "Top" top)
+	     (const :tag "Middle" middle)
+	     (integer :tag "Line number")
+	     (float :tag "Percentage")))
 
-(defcustom org-tree-enable-folding t
-  "Enable folding in Org-Tree buffers.
+   (defcustom org-tree-enable-folding t
+     "Enable folding in Org-Tree buffers.
 This feature can cause lag in large buffers. Try increasing
 `org-tree-timer-delay' to .5 seconds. Or, folding can be toggled locally
 with `org-tree-toggle-folding'."
-  :type 'boolean)
+     :type 'boolean)
 
-(defcustom org-tree-enable-auto-update t
-  "When non-nil, tree-buffers will automatically update.
+   (defcustom org-tree-enable-auto-update t
+     "When non-nil, tree-buffers will automatically update.
 Can be toggled locally by calling `org-tree-toggle-auto-update'."
-  :type 'boolean)
+     :type 'boolean)
 
 (defcustom org-tree-add-overlays t
   "When non-nil, overlays are included in tree-buffer headings.
@@ -120,17 +125,17 @@ This includes `org-todo' heads and `org-num' numbering."
 
 (define-button-type 'org-tree
   'action 'org-tree-jump
-  'help-echo nil)
-
-;;;###autoload
+  'help-echo nil);;;###autoload
 (defun org-tree ()
-  "Create Org-Tree buffer."
+  "Create or pop to Org-Tree buffer."
   (interactive)
   (when (org-tree-buffer-p)
     (error "Don't tree a tree"))
   (unless (derived-mode-p 'org-mode)
     (error "Not an org buffer"))
-  (let* ((tree-name (format "<tree>%s" (buffer-name)))
+  (let* ((tree-name (if org-tree-persistent
+                        "*Org-Tree*"
+                      (format "<tree>%s" (buffer-name))))
          (tree-buffer (get-buffer tree-name))
          (heading (org-tree-heading-number)))
     (unless (buffer-live-p tree-buffer)
@@ -160,6 +165,8 @@ This includes `org-todo' heads and `org-num' numbering."
             (outline-minor-mode 1))
           (setq header-line-format tree-head-line)
           (setq mode-line-format tree-mode-line))))
+    (when org-tree-persistent
+      (org-tree-update))
     (org-tree-set-timer)
     (pop-to-buffer tree-buffer
                    (display-buffer-in-side-window
@@ -243,8 +250,10 @@ This includes `org-todo' heads and `org-num' numbering."
         (cancel-timer org-tree-timer)
         (setq org-tree-timer nil))
     (unless (or (minibufferp)
-                (not org-tree-enable-auto-update)
-                (not (org-tree-has-tree-p))
+                (unless (and org-tree-persistent
+                             (derived-mode-p 'org-mode)
+                             (get-buffer-window "*Org-Tree*"))
+                  (not (org-tree-has-tree-p)))
                 (and (equal (point) org-tree-last-point)
                      (not (member last-command '(org-metaleft
                                                  org-metaright
@@ -276,9 +285,10 @@ This includes `org-todo' heads and `org-num' numbering."
 (defun org-tree-update ()
   "Update tree-buffer."
   (when-let* ((tree-buffer (get-buffer
-                            (format "<tree>%s"
-                                    (buffer-name))))
-              (tree-window (get-buffer-window tree-buffer))
+                            (if org-tree-persistent
+                                "*Org-Tree*"
+                              (format "<tree>%s"
+                                      (buffer-name)))))
               (heading (org-tree-heading-number))
               (headings (org-tree-get-headings))
               (tree-head-line (or (cadar (org-collect-keywords
@@ -287,7 +297,12 @@ This includes `org-todo' heads and `org-num' numbering."
               (tree-mode-line (format "Org-Tree - %s"
                                       (file-name-nondirectory
                                        buffer-file-name))))
-    (with-selected-window tree-window
+    (when org-tree-persistent
+      (save-restriction
+        (widen)
+        (jit-lock-mode 1)
+        (jit-lock-fontify-now)))
+    (with-current-buffer tree-buffer
       (when org-tree-enable-folding
         (org-tree-get-fold-state))
       (setq header-line-format tree-head-line)
@@ -311,15 +326,17 @@ This is added to `'kill-buffer-hook' for each base-buffer."
 
 (defun org-tree-buffer-list ()
   "Return list of current Org-Tree buffers."
-  (delq nil
-        (mapcar
-         (lambda (buf)
-           (org-tree-has-tree-p buf))
-         (buffer-list))))
+  (delq nil (append
+             (list (get-buffer "*Org-Tree*"))
+             (mapcar
+              (lambda (buf)
+                (org-tree-has-tree-p buf))
+              (buffer-list)))))
 
 (defun org-tree-buffer-p ()
   "Return t if current buffer is a tree-buffer."
-  (when (member (current-buffer) (org-tree-buffer-list))
+  (when (or (equal (buffer-name) "*Org-Tree*")
+            (member (current-buffer) (org-tree-buffer-list)))
     t))
 
 (defun org-tree-has-tree-p (&optional buffer)
