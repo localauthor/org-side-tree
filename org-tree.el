@@ -112,6 +112,9 @@ This includes `org-todo' heads and `org-num' numbering."
 (defvar org-tree-timer nil
   "Timer to update headings and cursor position.")
 
+(defvar-local org-tree-fold-state nil
+  "Fold state of current buffer.")
+
 (defvar-local org-tree-last-point 0
   "Cursor position from the last run of `post-command-hook'.")
 
@@ -352,33 +355,30 @@ This is added to `'kill-buffer-hook' for each base-buffer."
     (when (overlay-get ol 'invisible)
       (outline-previous-visible-heading 1))))
 
-(defvar-local org-tree-fold-state nil)
-
 (defun org-tree-get-fold-state ()
   "Register fold state of tree-buffer in `org-tree-fold-state'."
-  (interactive)
   (hl-line-mode -1)
   (setq org-tree-fold-state nil)
-  (goto-char (point-min))
-  (let ((total (count-lines (point-min) (point-max) t)))
-    (while (< (count-lines (point-min) (point) t)
-              total)
-      (end-of-line)
-      (if-let (ol (car (overlays-at (point))))
-          (if (overlay-get ol 'invisible)
-              (progn
-                (push 1 org-tree-fold-state)
-                (outline-next-visible-heading 1))
-            (push 0 org-tree-fold-state)
-            (forward-line))
-        (push 0 org-tree-fold-state)
-        (forward-line))))
-  (setq org-tree-fold-state (nreverse org-tree-fold-state))
-  (hl-line-mode 1))
+  (save-excursion
+    (goto-char (point-max))
+    (let ((total (line-number-at-pos)))
+      (goto-char (point-min))
+      (while (< (line-number-at-pos) total)
+        (end-of-line)
+        (if-let (ol (car (overlays-at (point))))
+            (if (overlay-get ol 'invisible)
+                (progn
+                  (push 1 org-tree-fold-state)
+                  (outline-next-visible-heading 1))
+              (push 0 org-tree-fold-state)
+              (forward-line))
+          (push 0 org-tree-fold-state)
+          (forward-line))))
+    (setq org-tree-fold-state (nreverse org-tree-fold-state))
+    (hl-line-mode 1)))
 
 (defun org-tree-restore-fold-state ()
   "Restore fold state of tree-buffer."
-  (interactive)
   (outline-show-all)
   (goto-char (point-min))
   (dolist (x org-tree-fold-state)
