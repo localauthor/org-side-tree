@@ -501,6 +501,7 @@ handler. ARG can be non-nil for special cases."
      ,doc
      (interactive,(when arg "p"))
      (let ((tree-window (selected-window)))
+       (beginning-of-line)
        (push-button nil t)
        (condition-case nil
            ,fn
