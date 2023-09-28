@@ -1,0 +1,17 @@
+#+title: org-side-tree: Navigate Org mode outlines in Emacs via side window
+#+author: Grant Rosson
+#+language: en
+
+** Video Demo
+
+- https://youtu.be/c3QLfl9_D5Y
+
+** Screenshot
+
+[[https://github.com/localauthor/org-side-tree/blob/main/images/screenshot1.jpg?raw=true]]
+
+** Setup
+
+Add =org-side-tree.el= to your loadpath and include =(require 'org-side-tree)= in your init file.
+
+Call =M-x org-side-tree= in any Org mode buffer.
