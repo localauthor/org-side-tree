@@ -98,6 +98,10 @@ This feature can cause lag in large buffers. Try increasing
 `org-tree-timer-delay' to .5 seconds. Or, folding can be toggled locally
 with `org-tree-toggle-folding'."
   :type 'boolean)
+
+(defcustom org-tree-enable-auto-update t
+  "When non-nil, tree-buffers will automatically update.
+Can be toggled locally by calling `org-tree-toggle-auto-update'."
   :type 'boolean)
 
 (defcustom org-tree-add-overlays t
@@ -223,7 +227,8 @@ This includes `org-todo' heads and `org-num' numbering."
 
 (defun org-tree-set-timer ()
   "Set `org-tree-timer-function'."
-  (unless org-tree-timer
+  (unless (or org-tree-timer
+              (not org-tree-enable-auto-update))
     (setq org-tree-timer
           (run-with-idle-timer
            org-tree-timer-delay t
@@ -236,6 +241,7 @@ This includes `org-todo' heads and `org-num' numbering."
         (cancel-timer org-tree-timer)
         (setq org-tree-timer nil))
     (unless (or (minibufferp)
+                (not org-tree-enable-auto-update)
                 (not (org-tree-has-tree-p))
                 (and (equal (point) org-tree-last-point)
                      (not (member last-command '(org-metaleft
@@ -249,8 +255,24 @@ This includes `org-todo' heads and `org-num' numbering."
       (org-tree-update)
       (setq org-tree-last-point (point)))))
 
+(defun org-tree-toggle-auto-update ()
+  "Toggle `org-tree-enable-auto-update' for the current buffer."
+  (interactive)
+  (cond
+   ((and (org-tree-has-tree-p))
+    (if (bound-and-true-p org-tree-enable-auto-update)
+        (progn
+          (setq-local org-tree-enable-auto-update nil)
+          (message "Auto-update disabled locally"))
+      (setq-local org-tree-enable-auto-update t)
+      (org-tree-set-timer)
+      (message "Auto-update enabled locally")))
+   ((and (org-tree-buffer-p))
+    (with-current-buffer (substring (buffer-name) 6)
+      (org-tree-toggle-auto-update)))))
+
 (defun org-tree-update ()
-  "Refresh cursor position in tree-buffer."
+  "Update tree-buffer."
   (when-let* ((tree-buffer (get-buffer
                             (format "<tree>%s"
                                     (buffer-name))))
