@@ -173,17 +173,15 @@ This includes `org-todo' heads and `org-num' numbering."
             (outline-minor-mode 1))
           (setq header-line-format tree-head-line)
           (setq mode-line-format tree-mode-line))))
-    (when org-side-tree-persistent
-      (org-side-tree-update))
     (org-side-tree-set-timer)
     (pop-to-buffer tree-buffer
                    (display-buffer-in-side-window
                     tree-buffer
                     `((side . ,org-side-tree-display-side))))
     (set-window-fringes (get-buffer-window tree-buffer) 1 1)
-    (org-side-tree-go-to-heading heading)
-    (beginning-of-line)
-    (hl-line-highlight)))
+    (when org-side-tree-persistent
+      (org-side-tree-update))
+    (org-side-tree-go-to-heading heading)))
 
 (defun org-side-tree-get-headings ()
   "Return a list of outline headings."
@@ -297,6 +295,7 @@ This includes `org-todo' heads and `org-num' numbering."
                                 "*Org-Side-Tree*"
                               (format "<tree>%s"
                                       (buffer-name)))))
+              (tree-window (get-buffer-window tree-buffer))
               (heading (org-side-tree-heading-number))
               (headings (org-side-tree-get-headings))
               (tree-head-line (or (cadar (org-collect-keywords
@@ -310,7 +309,7 @@ This includes `org-todo' heads and `org-num' numbering."
         (widen)
         (jit-lock-mode 1)
         (jit-lock-fontify-now)))
-    (with-current-buffer tree-buffer
+    (with-selected-window tree-window
       (when org-side-tree-enable-folding
         (org-side-tree-get-fold-state))
       (setq header-line-format tree-head-line)
@@ -322,9 +321,7 @@ This includes `org-todo' heads and `org-num' numbering."
         (outline-minor-mode 1)
         (org-side-tree-restore-fold-state))
       (goto-char (point-min))
-      (org-side-tree-go-to-heading heading)
-      (beginning-of-line)
-      (hl-line-highlight))))
+      (org-side-tree-go-to-heading heading))))
 
 (defun org-side-tree-cleanup ()
   "Kill Org-Side-Tree buffer associated with current buffer.
@@ -376,7 +373,9 @@ This is added to `'kill-buffer-hook' for each base-buffer."
     (outline-next-heading))
   (when-let (ol (car (overlays-at (point))))
     (when (overlay-get ol 'invisible)
-      (outline-previous-visible-heading 1))))
+      (outline-previous-visible-heading 1)))
+  (beginning-of-line)
+  (hl-line-highlight))
 
 (defun org-side-tree-get-fold-state ()
   "Register fold state of tree-buffer in `org-side-tree-fold-state'."
