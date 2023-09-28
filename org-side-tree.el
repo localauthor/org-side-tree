@@ -174,13 +174,13 @@ This includes `org-todo' heads and `org-num' numbering."
           (setq header-line-format tree-head-line)
           (setq mode-line-format tree-mode-line))))
     (org-side-tree-set-timer)
-    (pop-to-buffer tree-buffer
-                   (display-buffer-in-side-window
-                    tree-buffer
-                    `((side . ,org-side-tree-display-side))))
-    (set-window-fringes (get-buffer-window tree-buffer) 1 1)
+    (display-buffer-in-side-window
+     tree-buffer
+     `((side . ,org-side-tree-display-side)))
     (when org-side-tree-persistent
       (org-side-tree-update))
+    (pop-to-buffer tree-buffer)
+    (set-window-fringes (get-buffer-window tree-buffer) 1 1)
     (org-side-tree-go-to-heading heading)))
 
 (defun org-side-tree-get-headings ()
