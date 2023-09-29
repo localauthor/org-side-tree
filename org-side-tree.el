@@ -117,8 +117,16 @@ Can be toggled locally by calling `org-side-tree-toggle-auto-update'."
 
 (defcustom org-side-tree-add-overlays t
   "When non-nil, overlays are included in tree-buffer headings.
-This includes `org-todo' heads and `org-num' numbering."
+This includes `org-num' numbering."
   :type 'boolean)
+
+(defcustom org-side-tree-fontify t
+  "When non-nil, tree-buffer headings are fontified to match Org buffer.
+When nil, headings are in `org-side-tree-heading-face'."
+  :type 'boolean)
+
+(defface org-side-tree-heading-face '((t (:inherit default)))
+  "Face for headings when `org-side-tree-fontify' is nil.")
 
 (defvar org-side-tree-timer nil
   "Timer to update headings and cursor position.")
@@ -131,6 +139,8 @@ This includes `org-todo' heads and `org-num' numbering."
 
 (define-button-type 'org-side-tree
   'action 'org-side-tree-jump
+  'face 'org-side-tree-heading-face
+  'keymap 'org-side-tree-mode-map
   'help-echo nil)
 
 ;;;###autoload
@@ -183,6 +193,20 @@ This includes `org-todo' heads and `org-num' numbering."
     (set-window-fringes (get-buffer-window tree-buffer) 1 1)
     (org-side-tree-go-to-heading heading)))
 
+;;;###autoload
+(defun org-side-tree-toggle ()
+  "Toggle side-tree window."
+  (interactive)
+  (let* ((tree-buffer (get-buffer
+                       (if org-side-tree-persistent
+                           "*Org-Side-Tree*"
+                         (format "<tree>%s"
+                                 (buffer-name)))))
+         (tree-window (get-buffer-window tree-buffer)))
+    (if tree-window
+        (delete-window tree-window)
+      (org-side-tree))))
+
 (defun org-side-tree-get-headings ()
   "Return a list of outline headings."
   (let* ((heading-regexp (concat "^\\(?:"
@@ -203,11 +227,12 @@ This includes `org-todo' heads and `org-num' numbering."
                    (vector (cons (if (and org-side-tree-add-overlays
                                           line)
                                      line
-                                   (buffer-substring beg end))
+                                   (if org-side-tree-fontify
+                                       (buffer-substring beg end)
+                                     (buffer-substring-no-properties beg end)))
                                  `(type org-side-tree
                                         buffer ,buffer
-                                        marker ,(point-marker)
-                                        keymap org-side-tree-mode-map))))
+                                        marker ,(point-marker)))))
                   headings)
             (goto-char (1+ end))))))
     (if headings
