@@ -221,18 +221,19 @@ When nil, headings are in `org-side-tree-heading-face'."
         (while (re-search-forward heading-regexp nil t)
           (let* ((beg (line-beginning-position))
                  (end (line-end-position))
-                 (line (org-side-tree-overlays-to-text beg end)))
+                 (heading
+                  (or (and org-side-tree-add-overlays
+                           (org-side-tree-overlays-to-text beg end))
+                      (buffer-substring beg end))))
             (push (list
                    (org-get-heading)
-                   (vector (cons (if (and org-side-tree-add-overlays
-                                          line)
-                                     line
-                                   (if org-side-tree-fontify
-                                       (buffer-substring beg end)
-                                     (buffer-substring-no-properties beg end)))
-                                 `(type org-side-tree
-                                        buffer ,buffer
-                                        marker ,(point-marker)))))
+                   (vector (cons
+                            (if org-side-tree-fontify
+                                heading
+                              (substring-no-properties heading))
+                            `(type org-side-tree
+                                   buffer ,buffer
+                                   marker ,(point-marker)))))
                   headings)
             (goto-char (1+ end))))))
     (if headings
