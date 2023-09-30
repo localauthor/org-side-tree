@@ -169,8 +169,7 @@ When nil, headings are in `org-side-tree-heading-face'."
                                          '("title")))
                                  "Org-Side-Tree"))
              (tree-mode-line (format "Org-Side-Tree - %s"
-                                     (file-name-nondirectory
-                                      buffer-file-name))))
+                                     (buffer-name))))
         (when (default-value 'org-side-tree-enable-folding)
           (setq-local org-side-tree-enable-folding t))
         (with-current-buffer tree-buffer
@@ -345,8 +344,7 @@ When nil, headings are in `org-side-tree-heading-face'."
                                           '("title")))
                                   "Org-Side-Tree"))
               (tree-mode-line (format "Org-Side-Tree - %s"
-                                      (file-name-nondirectory
-                                       buffer-file-name))))
+                                      (buffer-name)))
               (dd default-directory))
     (with-selected-window tree-window
       (setq-local default-directory dd)
