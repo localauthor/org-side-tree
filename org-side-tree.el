@@ -170,13 +170,13 @@ When nil, headings are in `org-side-tree-heading-face'."
              (tree-mode-line (format "Org-Side-Tree - %s"
                                      (file-name-nondirectory
                                       buffer-file-name))))
-        (when (default-value org-side-tree-enable-folding)
+        (when (default-value 'org-side-tree-enable-folding)
           (setq-local org-side-tree-enable-folding t))
         (with-current-buffer tree-buffer
           (org-side-tree-mode)
           (setq tabulated-list-entries headings)
           (tabulated-list-print t t)
-          (when (default-value org-side-tree-enable-folding)
+          (when (default-value 'org-side-tree-enable-folding)
             (setq-local org-side-tree-enable-folding t)
             ;; preserve org font-locking
             (setq-local outline-minor-mode-highlight nil)
@@ -350,7 +350,9 @@ When nil, headings are in `org-side-tree-heading-face'."
       (when org-side-tree-enable-folding
         (setq-local outline-minor-mode-highlight nil)
         (outline-minor-mode 1)
-        (org-side-tree-restore-fold-state))
+        (unless (equal (length headings)
+                       (length (cdr org-side-tree-fold-state)))
+          (org-side-tree-restore-fold-state)))
       (goto-char (point-min))
       (org-side-tree-go-to-heading heading))))
 
@@ -428,19 +430,21 @@ This is added to `'kill-buffer-hook' for each base-buffer."
           (push 0 org-side-tree-fold-state)
           (forward-line))))
     (setq org-side-tree-fold-state (nreverse org-side-tree-fold-state))
+    (push (buffer-name) org-side-tree-fold-state)
     (hl-line-mode 1)))
 
 (defun org-side-tree-restore-fold-state ()
   "Restore fold state of tree-buffer."
-  (outline-show-all)
-  (goto-char (point-min))
-  (dolist (x org-side-tree-fold-state)
-    (if (= x 1)
-        (progn
-          (outline-hide-subtree)
-          (outline-next-visible-heading 1))
-      (forward-line)))
-  (goto-char (point-min)))
+  (when (equal (buffer-name) (car org-side-tree-fold-state))
+    (outline-show-all)
+    (goto-char (point-min))
+    (dolist (x (cdr org-side-tree-fold-state))
+      (if (= x 1)
+          (progn
+            (outline-hide-subtree)
+            (outline-next-visible-heading 1))
+        (forward-line)))
+    (goto-char (point-min))))
 
 (defun org-side-tree-toggle-folding ()
   "Toggle `org-side-tree-enable-folding' for the current buffer."
