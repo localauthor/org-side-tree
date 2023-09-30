@@ -155,7 +155,8 @@ When nil, headings are in `org-side-tree-heading-face'."
                         "*Org-Side-Tree*"
                       (format "<tree>%s" (buffer-name))))
          (tree-buffer (get-buffer tree-name))
-         (heading (org-side-tree-heading-number)))
+         (heading (org-side-tree-heading-number))
+         (dd default-directory))
     (unless (buffer-live-p tree-buffer)
       (save-restriction
         (widen)
@@ -173,6 +174,7 @@ When nil, headings are in `org-side-tree-heading-face'."
         (when (default-value 'org-side-tree-enable-folding)
           (setq-local org-side-tree-enable-folding t))
         (with-current-buffer tree-buffer
+          (setq-local default-directory dd)
           (org-side-tree-mode)
           (setq tabulated-list-entries headings)
           (tabulated-list-print t t)
@@ -345,7 +347,9 @@ When nil, headings are in `org-side-tree-heading-face'."
               (tree-mode-line (format "Org-Side-Tree - %s"
                                       (file-name-nondirectory
                                        buffer-file-name))))
+              (dd default-directory))
     (with-selected-window tree-window
+      (setq-local default-directory dd)
       (when org-side-tree-enable-folding
         (org-side-tree-get-fold-state))
       (setq header-line-format tree-head-line)
