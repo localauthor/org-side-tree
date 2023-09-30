@@ -226,7 +226,7 @@ When nil, headings are in `org-side-tree-heading-face'."
                            (org-side-tree-overlays-to-text beg end))
                       (buffer-substring beg end))))
             (push (list
-                   (org-get-heading)
+                   (buffer-substring beg end)
                    (vector (cons
                             (if org-side-tree-fontify
                                 heading
