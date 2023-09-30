@@ -151,7 +151,7 @@ When nil, headings are in `org-side-tree-heading-face'."
     (error "Don't tree a tree"))
   (unless (derived-mode-p 'org-mode)
     (error "Not an org buffer"))
-  (let* ((tree-name (if org-side-tree-persistent
+  (let* ((tree-name (if (default-value 'org-side-tree-persistent)
                         "*Org-Side-Tree*"
                       (format "<tree>%s" (buffer-name))))
          (tree-buffer (get-buffer tree-name))
@@ -187,7 +187,9 @@ When nil, headings are in `org-side-tree-heading-face'."
     (display-buffer-in-side-window
      tree-buffer
      `((side . ,org-side-tree-display-side)))
-    (when org-side-tree-persistent
+    (when (default-value 'org-side-tree-persistent)
+      (setq-local org-side-tree-persistent
+                  (buffer-name))
       (org-side-tree-update))
     (pop-to-buffer tree-buffer)
     (set-window-fringes (get-buffer-window tree-buffer) 1 1)
@@ -198,7 +200,7 @@ When nil, headings are in `org-side-tree-heading-face'."
   "Toggle side-tree window."
   (interactive)
   (let* ((tree-buffer (get-buffer
-                       (if org-side-tree-persistent
+                       (if (default-value 'org-side-tree-persistent)
                            "*Org-Side-Tree*"
                          (format "<tree>%s"
                                  (buffer-name)))))
@@ -285,7 +287,7 @@ When nil, headings are in `org-side-tree-heading-face'."
         (setq org-side-tree-timer nil))
     (unless (or (minibufferp)
                 (not org-side-tree-enable-auto-update)
-                (unless (and org-side-tree-persistent
+                (unless (and (default-value 'org-side-tree-persistent)
                              (derived-mode-p 'org-mode)
                              (get-buffer-window "*Org-Side-Tree*"))
                   (not (org-side-tree-has-tree-p)))
@@ -321,8 +323,16 @@ When nil, headings are in `org-side-tree-heading-face'."
 
 (defun org-side-tree-update ()
   "Update tree-buffer."
+  (unless (equal org-side-tree-persistent
+                 (buffer-name))
+    (setq-local org-side-tree-persistent
+                (buffer-name))
+    (save-restriction
+      (widen)
+      (jit-lock-mode 1)
+      (jit-lock-fontify-now)))
   (when-let* ((tree-buffer (get-buffer
-                            (if org-side-tree-persistent
+                            (if (default-value 'org-side-tree-persistent)
                                 "*Org-Side-Tree*"
                               (format "<tree>%s"
                                       (buffer-name)))))
@@ -335,11 +345,6 @@ When nil, headings are in `org-side-tree-heading-face'."
               (tree-mode-line (format "Org-Side-Tree - %s"
                                       (file-name-nondirectory
                                        buffer-file-name))))
-    (when org-side-tree-persistent
-      (save-restriction
-        (widen)
-        (jit-lock-mode 1)
-        (jit-lock-fontify-now)))
     (with-selected-window tree-window
       (when org-side-tree-enable-folding
         (org-side-tree-get-fold-state))
@@ -472,7 +477,7 @@ This is added to `'kill-buffer-hook' for each base-buffer."
           (setq-local org-side-tree-enable-folding t))
         (message "Folding enabled locally")))
      (t
-      (if org-side-tree-persistent
+      (if (default-value 'org-side-tree-persistent)
           (with-current-buffer (get-buffer "*Org-Side-Tree*")
             (org-side-tree-toggle-folding))
         (with-current-buffer (get-buffer (org-side-tree-has-tree-p))
