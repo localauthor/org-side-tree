@@ -238,7 +238,9 @@ When nil, headings are in `org-side-tree-heading-face'."
             (goto-char (1+ end))))))
     (if headings
         (nreverse headings)
-      (list (list "" (vector "[No headings]"))))))
+      (list (list "" (vector (cons "[No headings]" `(type org-side-tree
+                                                          buffer ,buffer
+                                                          face default))))))))
 
 (defun org-side-tree-overlays-to-text (beg end)
   "Return line from BEG to END with overlays as text."
@@ -479,22 +481,24 @@ This is added to `'kill-buffer-hook' for each base-buffer."
         (buffer (get-text-property (point) 'buffer))
         (marker (get-text-property (point) 'marker))
         (recenter-positions (list org-side-tree-recenter-position)))
-    (unless (buffer-live-p buffer)
-      (when (yes-or-no-p
-             "Base buffer has been killed. Kill org-side-tree window?")
-        (kill-buffer-and-window))
-      (keyboard-quit))
-    (pop-to-buffer buffer)
-    (org-goto-marker-or-bmk marker)
-    (org-fold-show-subtree)
-    (beginning-of-line)
-    (recenter-top-bottom)
-    (pulse-momentary-highlight-one-line nil 'highlight)
-    (when org-side-tree-narrow-on-jump
-      (org-narrow-to-element))
-    (when (member this-command '(org-side-tree-previous-heading
-                                 org-side-tree-next-heading))
-      (select-window tree-window))))
+    (if (null marker)
+        (pop-to-buffer buffer)
+      (unless (buffer-live-p buffer)
+        (when (yes-or-no-p
+               "Base buffer has been killed. Kill org-side-tree window?")
+          (kill-buffer-and-window))
+        (keyboard-quit))
+      (pop-to-buffer buffer)
+      (org-goto-marker-or-bmk marker)
+      (org-fold-show-subtree)
+      (beginning-of-line)
+      (recenter-top-bottom)
+      (pulse-momentary-highlight-one-line nil 'highlight)
+      (when org-side-tree-narrow-on-jump
+        (org-narrow-to-element))
+      (when (member this-command '(org-side-tree-previous-heading
+                                   org-side-tree-next-heading))
+        (select-window tree-window)))))
 
 (defun org-side-tree-next-heading ()
   "Move to next heading."
