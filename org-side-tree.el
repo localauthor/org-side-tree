@@ -534,14 +534,11 @@ This is added to `'kill-buffer-hook' for each base-buffer."
 
 (defun org-side-tree-goto-marker (marker)
   "Go to MARKER, widen if necessary."
-  (when (and marker (marker-buffer marker)
-	     (buffer-live-p (marker-buffer marker)))
-    (progn
-      (pop-to-buffer-same-window (marker-buffer marker))
-      (when (or (> marker (point-max)) (< marker (point-min)))
-	(widen))
-      (goto-char marker)
-      (outline-show-subtree))))
+  (when (or (> marker (point-max))
+            (< marker (point-min)))
+    (widen))
+  (goto-char marker)
+  (outline-show-subtree))
 
 (defun org-side-tree-next-heading ()
   "Move to next heading."
