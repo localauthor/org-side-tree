@@ -572,7 +572,7 @@ This is added to `'kill-buffer-hook' for each base-buffer."
         (org-narrow-to-subtree)))))
 
 (defmacro org-side-tree-emulate (name doc fn arg error-fn)
-  "Define function NAME to emulate Org-Mode function FN.
+  "Define function NAME to perform function FN in base-buffer.
 DOC is a doc string. ERROR-FN is the body of a `condition-case'
 handler. ARG can be non-nil for special cases."
   `(defun ,(intern (symbol-name name)) ,(when arg `(&optional ARG))
@@ -592,14 +592,12 @@ handler. ARG can be non-nil for special cases."
 (org-side-tree-emulate
  org-side-tree-move-subtree-down
  "Move the current subtree down past ARG headlines of the same level."
- ;; GENERALIZE
  (outline-move-subtree-down ARG) t
  (message "Cannot move past superior level or buffer limit"))
 
 (org-side-tree-emulate
  org-side-tree-move-subtree-up
  "Move the current subtree up past ARG headlines of the same level."
- ;; GENERALIZE
  (outline-move-subtree-up ARG) t
  (message "Cannot move past superior level or buffer limit"))
 
@@ -626,27 +624,43 @@ handler. ARG can be non-nil for special cases."
 (org-side-tree-emulate
  org-side-tree-promote-subtree
  "Promote the entire subtree."
- ;; GENERALIZE
- (org-promote-subtree) nil
- (message "Cannot promote to level 0"))
+ (cond ((or (derived-mode-p 'outline-mode)
+            outline-minor-mode)
+        (outline-promote 'subtree))
+       ((derived-mode-p 'org-mode)
+        (org-promote-subtree)))
+ nil (message "Cannot promote to level 0"))
 
 (org-side-tree-emulate
  org-side-tree-demote-subtree
  "Demote the entire subtree."
- ;; GENERALIZE
- (org-demote-subtree) nil nil)
+ (cond ((or (derived-mode-p 'outline-mode)
+            outline-minor-mode)
+        (outline-demote 'subtree))
+       ((derived-mode-p 'org-mode)
+        (org-demote-subtree)))
+ nil nil)
 
 (org-side-tree-emulate
- org-side-tree-do-promote
+ org-side-tree-promote
  "Promote the current heading higher up the tree."
- ;; GENERALIZE
- (org-do-promote) nil nil)
+ (cond ((or (derived-mode-p 'outline-mode)
+            outline-minor-mode)
+        (outline-promote))
+       ((derived-mode-p 'org-mode)
+        (org-do-promote)))
+ nil nil)
 
 (org-side-tree-emulate
- org-side-tree-do-demote
+ org-side-tree-demote
  "Demote the current heading lower down the tree."
- ;; GENERALIZE
- (org-do-demote) nil nil)
+ (cond ((or (derived-mode-p 'outline-mode)
+            outline-minor-mode)
+        ;; BUG: match-data returns next level heading
+        (outline-demote))
+       ((derived-mode-p 'org-mode)
+        (org-do-demote)))
+ nil nil)
 
 (provide 'org-side-tree)
 ;;; org-side-tree.el ends here
