@@ -134,7 +134,7 @@ When nil, headings are in `org-side-tree-heading-face'."
 (defvar-local org-side-tree-fold-state nil
   "Fold state of current buffer.")
 
-(defvar-local org-side-tree-last-point 0
+(defvar org-side-tree-last-point nil
   "Cursor position from the last run of `post-command-hook'.")
 
 (define-button-type 'org-side-tree
