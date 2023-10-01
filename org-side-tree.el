@@ -149,8 +149,8 @@ When nil, headings are in `org-side-tree-heading-face'."
   (interactive)
   (when (org-side-tree-buffer-p)
     (error "Don't tree a tree"))
-  (unless (derived-mode-p 'org-mode)
-    (error "Not an org buffer"))
+  (unless (bound-and-true-p outline-regexp)
+    (error "Not an outline buffer"))
   (let* ((tree-name (if (default-value 'org-side-tree-persistent)
                         "*Org-Side-Tree*"
                       (format "<tree>%s" (buffer-name))))
@@ -213,7 +213,7 @@ When nil, headings are in `org-side-tree-heading-face'."
 (defun org-side-tree-get-headings ()
   "Return a list of outline headings."
   (let* ((heading-regexp (concat "^\\(?:"
-                                 org-outline-regexp
+                                 outline-regexp
                                  "\\)"))
          (buffer (current-buffer))
          headings)
@@ -229,7 +229,7 @@ When nil, headings are in `org-side-tree-heading-face'."
                            (org-side-tree-overlays-to-text beg end))
                       (buffer-substring beg end))))
             (push (list
-                   (buffer-substring beg end)
+                   heading
                    (vector (cons
                             (if org-side-tree-fontify
                                 heading
@@ -287,13 +287,19 @@ When nil, headings are in `org-side-tree-heading-face'."
         (cancel-timer org-side-tree-timer)
         (setq org-side-tree-timer nil))
     (unless (or (minibufferp)
+                (org-side-tree-buffer-p)
                 (not org-side-tree-enable-auto-update)
                 (unless (and (default-value 'org-side-tree-persistent)
-                             (derived-mode-p 'org-mode)
+                             outline-regexp
                              (get-buffer-window "*Org-Side-Tree*"))
                   (not (org-side-tree-has-tree-p)))
                 (and (equal (point) org-side-tree-last-point)
-                     (not (member last-command '(org-metaleft
+                     (not (member last-command '(outline-demote
+                                                 outline-promote
+                                                 ;; FIX
+                                                 outline-move-subtree-up
+                                                 outline-move-subtree-down
+                                                 org-metaleft
                                                  org-metaright
                                                  org-shiftleft
                                                  org-shiftright
@@ -338,6 +344,7 @@ When nil, headings are in `org-side-tree-heading-face'."
                               (format "<tree>%s"
                                       (buffer-name)))))
               (tree-window (get-buffer-window tree-buffer))
+              (buffer-ol-regexp outline-regexp)
               (heading (org-side-tree-heading-number))
               (headings (org-side-tree-get-headings))
               (tree-head-line (or (cadar (org-collect-keywords
@@ -347,7 +354,9 @@ When nil, headings are in `org-side-tree-heading-face'."
                                       (buffer-name)))
               (dd default-directory))
     (with-selected-window tree-window
+      (setq-local outline-regexp buffer-ol-regexp)
       (setq-local default-directory dd)
+      (set-window-fringes tree-window 1 1)
       (when org-side-tree-enable-folding
         (org-side-tree-get-fold-state))
       (setq header-line-format tree-head-line)
@@ -394,13 +403,17 @@ This is added to `'kill-buffer-hook' for each base-buffer."
   "Return the number of the current heading."
   (let ((count 0)
         (end (save-excursion
-               (unless (org-at-heading-p)
-                 (org-previous-visible-heading 1))
+               (unless (outline-on-heading-p)
+                 (outline-previous-visible-heading 1))
                (point))))
     (save-restriction
       (widen)
       (save-excursion
         (goto-char (point-min))
+        ;; account for headline on first line
+        (when (and (bobp)
+                   (outline-on-heading-p))
+          (setq count (1+ count)))
         (while (and (outline-next-heading)
                     (<= (point) end))
           (setq count (1+ count)))))
@@ -500,16 +513,32 @@ This is added to `'kill-buffer-hook' for each base-buffer."
           (kill-buffer-and-window))
         (keyboard-quit))
       (pop-to-buffer buffer)
-      (org-goto-marker-or-bmk marker)
-      (org-fold-show-subtree)
+      (org-side-tree-goto-marker marker)
+      (outline-show-subtree)
       (beginning-of-line)
       (recenter-top-bottom)
       (pulse-momentary-highlight-one-line nil 'highlight)
-      (when org-side-tree-narrow-on-jump
-        (org-narrow-to-element))
+      (when  org-side-tree-narrow-on-jump
+        (cond ((or
+                (derived-mode-p 'org-mode)
+                (derived-mode-p 'outline-mode))
+               (org-narrow-to-element))
+              (outline-minor-mode
+               (org-narrow-to-subtree))))
       (when (member this-command '(org-side-tree-previous-heading
                                    org-side-tree-next-heading))
         (select-window tree-window)))))
+
+(defun org-side-tree-goto-marker (marker)
+  "Go to MARKER, widen if necessary."
+  (when (and marker (marker-buffer marker)
+	     (buffer-live-p (marker-buffer marker)))
+    (progn
+      (pop-to-buffer-same-window (marker-buffer marker))
+      (when (or (> marker (point-max)) (< marker (point-min)))
+	(widen))
+      (goto-char marker)
+      (outline-show-subtree))))
 
 (defun org-side-tree-next-heading ()
   "Move to next heading."
@@ -521,10 +550,10 @@ This is added to `'kill-buffer-hook' for each base-buffer."
           (forward-line 1))
         (push-button nil t))
     (widen)
-    (org-next-visible-heading 1)
+    (outline-next-visible-heading 1)
     (org-side-tree-update)
-    (if org-side-tree-narrow-on-jump
-        (org-narrow-to-subtree))))
+    (when org-side-tree-narrow-on-jump
+      (org-narrow-to-subtree))))
 
 (defun org-side-tree-previous-heading ()
   "Move to previous heading."
@@ -536,7 +565,7 @@ This is added to `'kill-buffer-hook' for each base-buffer."
           (forward-line -1))
         (push-button nil t))
     (widen)
-    (org-previous-visible-heading 1)
+    (outline-previous-visible-heading 1)
     (org-side-tree-update)
     (when org-side-tree-narrow-on-jump
       (unless (org-before-first-heading-p)
@@ -563,13 +592,15 @@ handler. ARG can be non-nil for special cases."
 (org-side-tree-emulate
  org-side-tree-move-subtree-down
  "Move the current subtree down past ARG headlines of the same level."
- (org-move-subtree-down ARG) t
+ ;; GENERALIZE
+ (outline-move-subtree-down ARG) t
  (message "Cannot move past superior level or buffer limit"))
 
 (org-side-tree-emulate
  org-side-tree-move-subtree-up
  "Move the current subtree up past ARG headlines of the same level."
- (org-move-subtree-up ARG) t
+ ;; GENERALIZE
+ (outline-move-subtree-up ARG) t
  (message "Cannot move past superior level or buffer limit"))
 
 (org-side-tree-emulate
@@ -595,22 +626,26 @@ handler. ARG can be non-nil for special cases."
 (org-side-tree-emulate
  org-side-tree-promote-subtree
  "Promote the entire subtree."
+ ;; GENERALIZE
  (org-promote-subtree) nil
  (message "Cannot promote to level 0"))
 
 (org-side-tree-emulate
  org-side-tree-demote-subtree
  "Demote the entire subtree."
+ ;; GENERALIZE
  (org-demote-subtree) nil nil)
 
 (org-side-tree-emulate
  org-side-tree-do-promote
  "Promote the current heading higher up the tree."
+ ;; GENERALIZE
  (org-do-promote) nil nil)
 
 (org-side-tree-emulate
  org-side-tree-do-demote
  "Demote the current heading lower down the tree."
+ ;; GENERALIZE
  (org-do-demote) nil nil)
 
 (provide 'org-side-tree)
