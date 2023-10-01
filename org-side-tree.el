@@ -7,7 +7,7 @@
 ;; License: GPL-3.0-or-later
 ;; Version: 0.4
 ;; Homepage: https://github.com/localauthor/org-side-tree
-;; Package-Requires: ((emacs "27.2"))
+;; Package-Requires: ((emacs "28.1"))
 
 ;; This program is free software; you can redistribute it and/or modify it
 ;; under the terms of the GNU General Public License as published by the Free
@@ -501,7 +501,7 @@ This is added to `'kill-buffer-hook' for each base-buffer."
         (keyboard-quit))
       (pop-to-buffer buffer)
       (org-goto-marker-or-bmk marker)
-      (org-fold-show-subtree)
+      (org-show-subtree)
       (beginning-of-line)
       (recenter-top-bottom)
       (pulse-momentary-highlight-one-line nil 'highlight)
