@@ -149,7 +149,9 @@ When nil, headings are in `org-side-tree-heading-face'."
   (interactive)
   (when (org-side-tree-buffer-p)
     (error "Don't tree a tree"))
-  (unless (bound-and-true-p outline-regexp)
+  (unless (or (derived-mode-p 'org-mode)
+              (derived-mode-p 'outline-mode)
+              outline-minor-mode)
     (error "Not an outline buffer"))
   (let* ((tree-name (if (default-value 'org-side-tree-persistent)
                         "*Org-Side-Tree*"
@@ -289,27 +291,28 @@ When nil, headings are in `org-side-tree-heading-face'."
       (progn
         (cancel-timer org-side-tree-timer)
         (setq org-side-tree-timer nil))
-    (unless (or (minibufferp)
-                (org-side-tree-buffer-p)
-                (not org-side-tree-enable-auto-update)
-                (unless (and (default-value 'org-side-tree-persistent)
-                             outline-regexp
-                             (get-buffer-window "*Org-Side-Tree*"))
-                  (not (org-side-tree-has-tree-p)))
-                (and (equal (point) org-side-tree-last-point)
-                     (not (member last-command '(outline-demote
-                                                 outline-promote
-                                                 ;; FIX
-                                                 outline-move-subtree-up
-                                                 outline-move-subtree-down
-                                                 org-metaleft
-                                                 org-metaright
-                                                 org-shiftleft
-                                                 org-shiftright
-                                                 org-shiftmetaright
-                                                 org-shiftmetaleft
-                                                 org-shiftup
-                                                 org-shiftdown)))))
+    (when (or (and org-side-tree-enable-auto-update
+                   (not (equal (point) org-side-tree-last-point))
+                   (or (derived-mode-p 'org-mode)
+                       (derived-mode-p 'outline-mode)
+                       outline-minor-mode)
+                   (not (org-side-tree-buffer-p))
+                   (or (and (default-value 'org-side-tree-persistent)
+                            (get-buffer-window "*Org-Side-Tree*"))
+                       (org-side-tree-has-tree-p)))
+              (member last-command '(outline-demote
+                                     outline-promote
+                                     ;; FIX
+                                     outline-move-subtree-up
+                                     outline-move-subtree-down
+                                     org-metaleft
+                                     org-metaright
+                                     org-shiftleft
+                                     org-shiftright
+                                     org-shiftmetaright
+                                     org-shiftmetaleft
+                                     org-shiftup
+                                     org-shiftdown)))
       (org-side-tree-update)
       (setq org-side-tree-last-point (point)))))
 
