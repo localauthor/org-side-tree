@@ -626,6 +626,7 @@ handler. ARG can be non-nil for special cases."
  "Promote the entire subtree."
  (cond ((or (derived-mode-p 'outline-mode)
             outline-minor-mode)
+        ;; FIX: acts on single heading
         (outline-promote 'subtree))
        ((derived-mode-p 'org-mode)
         (org-promote-subtree)))
@@ -636,6 +637,7 @@ handler. ARG can be non-nil for special cases."
  "Demote the entire subtree."
  (cond ((or (derived-mode-p 'outline-mode)
             outline-minor-mode)
+        ;; FIX: acts on single heading
         (outline-demote 'subtree))
        ((derived-mode-p 'org-mode)
         (org-demote-subtree)))
@@ -657,6 +659,9 @@ handler. ARG can be non-nil for special cases."
  (cond ((or (derived-mode-p 'outline-mode)
             outline-minor-mode)
         ;; BUG: match-data returns next level heading
+        ;; HACK: reset match-data
+        (outline-previous-visible-heading 1)
+        (outline-next-visible-heading 1)
         (outline-demote))
        ((derived-mode-p 'org-mode)
         (org-do-demote)))
