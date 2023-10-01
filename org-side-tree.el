@@ -225,7 +225,8 @@ When nil, headings are in `org-side-tree-heading-face'."
           (let* ((beg (line-beginning-position))
                  (end (line-end-position))
                  (heading
-                  (or (and org-side-tree-add-overlays
+                  (or (and (and org-side-tree-add-overlays
+                                (derived-mode-p 'org-mode))
                            (org-side-tree-overlays-to-text beg end))
                       (buffer-substring beg end))))
             (push (list
@@ -241,9 +242,10 @@ When nil, headings are in `org-side-tree-heading-face'."
             (goto-char (1+ end))))))
     (if headings
         (nreverse headings)
-      (list (list "" (vector (cons "[No headings]" `(type org-side-tree
-                                                          buffer ,buffer
-                                                          face default))))))))
+      (list (list "" (vector (cons "[No headings]"
+                                   `(type org-side-tree
+                                          buffer ,buffer
+                                          face default))))))))
 
 (defun org-side-tree-overlays-to-text (beg end)
   "Return line from BEG to END with overlays as text."
@@ -256,7 +258,8 @@ When nil, headings are in `org-side-tree-heading-face'."
             (let ((t1 (buffer-substring beg (overlay-start o)))
                   (t2 (overlay-get o 'before-string))
                   (t3 (or (overlay-get o 'display)
-                          (buffer-substring (overlay-start o) (overlay-end o))))
+                          (buffer-substring (overlay-start o)
+                                            (overlay-end o))))
                   (t4 (overlay-get o 'after-string))
                   (t5 (buffer-substring (overlay-end o) end))
                   (inv (overlay-get o 'invisible)))
