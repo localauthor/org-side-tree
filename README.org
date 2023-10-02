@@ -1,17 +1,64 @@
-#+title: org-side-tree: Navigate Org mode outlines in Emacs via side window
-#+author: Grant Rosson
-#+language: en
+#+title: org-side-tree
 
-** Video Demo
+[[https://melpa.org/#/org-side-tree][file:https://melpa.org/packages/org-side-tree-badge.svg]]
 
-- https://youtu.be/c3QLfl9_D5Y
-
-** Screenshot
+This package presents a navigable, interactive tree-structured outline of the current buffer's headings in a handy side window.
 
 [[https://github.com/localauthor/org-side-tree/blob/main/images/screenshot1.jpg?raw=true]]
 
-** Setup
+* Installation
+
+The easiest way to install is from [[https://melpa.org/#/org-side-bar][MELPA]].
 
 Add =org-side-tree.el= to your loadpath and include =(require 'org-side-tree)= in your init file.
 
 Call =M-x org-side-tree= in any Org mode buffer.
+
+* Some Customization Options
+
+- =org-side-tree-persistent=
+
+When non-nil, use a single buffer for all trees. When nil, each buffer will have its own tree-buffer.
+
+
+- =org-side-tree-display-side=
+
+Side of frame where tree-buffer will display.
+
+
+- =org-side-tree-fontify=
+
+When non-nil, tree-buffer headings are fontified to match base-buffer. When nil, headings are in `org-side-tree-heading-face'.
+
+
+- =org-side-tree-enable-folding=
+
+When non-nil, enable foldable headings in tree-buffers.
+
+
+* Video Demo
+
+- https://youtu.be/c3QLfl9_D5Y
+
+
+* Support for non-Org files
+
+This package is generally functional in buffers that use =outline-mode= or
+=outline-minor-mode=. However, the depth and quality of support/functionality
+in these modes is highly dependent on what the buffer-local value of
+=outline-regexp= is. Therefore, individual experience may vary. Use
+advisedly.
+
+For example, in =emacs-lisp-mode=, consider setting =outline-regexp= as
+follows:
+#+begin_src elisp
+(setq-local outline-regexp ";;;\\(;* [^ \t\n]\\)")
+#+end_src
+
+To set this automatically for every elisp buffer, add the following lines to
+your init file:
+
+#+begin_src elisp
+(add-hook 'emacs-lisp-mode-hook (lambda () (setq-local outline-regexp ";;;\\(;* [^   \t\n]\\)")))
+(add-hook 'emacs-lisp-mode-hook 'outline-minor-mode)
+#+end_src
