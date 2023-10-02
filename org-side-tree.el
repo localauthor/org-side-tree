@@ -63,6 +63,14 @@
   (setq fringe-indicator-alist
         '((truncation nil nil))))
 
+(define-button-type 'org-side-tree
+  'action 'org-side-tree-jump
+  'face 'org-side-tree-heading-face
+  'keymap org-side-tree-mode-map
+  'help-echo nil)
+
+;;;; Customization
+
 (defgroup org-side-tree nil
   "Navigate Org headings via sidebar tree."
   :group 'org
@@ -125,8 +133,12 @@ This includes `org-num' numbering."
 When nil, headings are in `org-side-tree-heading-face'."
   :type 'boolean)
 
+;;;; Faces
+
 (defface org-side-tree-heading-face '((t (:inherit default)))
   "Face for headings when `org-side-tree-fontify' is nil.")
+
+;;;; Internal variables
 
 (defvar org-side-tree-timer nil
   "Timer to update headings and cursor position.")
@@ -137,11 +149,7 @@ When nil, headings are in `org-side-tree-heading-face'."
 (defvar org-side-tree-last-point nil
   "Cursor position from the last run of `post-command-hook'.")
 
-(define-button-type 'org-side-tree
-  'action 'org-side-tree-jump
-  'face 'org-side-tree-heading-face
-  'keymap 'org-side-tree-mode-map
-  'help-echo nil)
+;;;; Functions
 
 ;;;###autoload
 (defun org-side-tree ()
@@ -576,6 +584,8 @@ This is added to `'kill-buffer-hook' for each base-buffer."
       (unless (org-before-first-heading-p)
         (org-narrow-to-subtree)))))
 
+;;;; Emulate macro
+
 (defmacro org-side-tree-emulate (name doc fn arg error-fn)
   "Define function NAME to perform function FN in base-buffer.
 DOC is a doc string. ERROR-FN is the body of a `condition-case'
@@ -605,26 +615,6 @@ handler. ARG can be non-nil for special cases."
  "Move the current subtree up past ARG headlines of the same level."
  (outline-move-subtree-up ARG) t
  (message "Cannot move past superior level or buffer limit"))
-
-(org-side-tree-emulate
- org-side-tree-next-todo
- "Change the TODO state of heading."
- (org-todo 'right) nil nil)
-
-(org-side-tree-emulate
- org-side-tree-previous-todo
- "Change the TODO state of heading."
- (org-todo 'left) nil nil)
-
-(org-side-tree-emulate
- org-side-tree-priority-up
- "Change the priority state of heading."
- (org-priority-up) nil nil)
-
-(org-side-tree-emulate
- org-side-tree-priority-down
- "Change the priority state of heading."
- (org-priority-down) nil nil)
 
 (org-side-tree-emulate
  org-side-tree-promote-subtree
@@ -670,6 +660,34 @@ handler. ARG can be non-nil for special cases."
         (outline-demote))
        ((derived-mode-p 'org-mode)
         (org-do-demote)))
+ nil nil)
+
+(org-side-tree-emulate
+ org-side-tree-next-todo
+ "Change the TODO state of heading."
+ (when (derived-mode-p 'org-mode)
+   (org-todo 'right))
+ nil nil)
+
+(org-side-tree-emulate
+ org-side-tree-previous-todo
+ "Change the TODO state of heading."
+ (when (derived-mode-p 'org-mode)
+   (org-todo 'left))
+ nil nil)
+
+(org-side-tree-emulate
+ org-side-tree-priority-up
+ "Change the priority state of heading."
+ (when (derived-mode-p 'org-mode)
+   (org-priority-up))
+ nil nil)
+
+(org-side-tree-emulate
+ org-side-tree-priority-down
+ "Change the priority state of heading."
+ (when (derived-mode-p 'org-mode)
+   (org-priority-down))
  nil nil)
 
 (provide 'org-side-tree)
