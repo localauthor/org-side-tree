@@ -260,7 +260,7 @@ When nil, headings are in `org-side-tree-heading-face'."
                   (or (and (and org-side-tree-add-overlays
                                 (derived-mode-p 'org-mode))
                            (org-side-tree-overlays-to-text beg end))
-                      (buffer-substring beg end))))
+                      (org-side-tree-visible-substring beg end))))
             (push (list
                    heading
                    (vector (cons
@@ -279,6 +279,22 @@ When nil, headings are in `org-side-tree-heading-face'."
                                           buffer ,buffer
                                           face default))))))))
 
+(defun org-side-tree-visible-substring (beg end)
+  "Return visible portion of string from BEG to ENG."
+  (let ((string "")
+        (props '(org-fold--spec-org-link-description-global
+                 org-fold--spec-org-link-global
+                 help-echo htmlize-link font-lock-multiline
+                 keymap mouse-face rear-nonsticky)))
+    (while (/= beg end)
+      (when (invisible-p beg)
+        (setq beg (next-single-char-property-change beg 'invisible nil end)))
+      (let ((next (next-single-char-property-change beg 'invisible nil end)))
+        (setq string (concat string (buffer-substring beg next)))
+        (setq beg next)))
+    (remove-list-of-text-properties 0 (length string) props string)
+    string))
+
 (defun org-side-tree-overlays-to-text (beg end)
   "Return line from BEG to END with overlays as text."
   (let ((overlays (overlays-in beg end))
@@ -287,13 +303,14 @@ When nil, headings are in `org-side-tree-heading-face'."
                                     (< (overlay-start o1)
                                        (overlay-start o2)))))
     (mapc (lambda (o)
-            (let ((t1 (buffer-substring beg (overlay-start o)))
+            (let ((t1 (org-side-tree-visible-substring beg
+                                                       (overlay-start o)))
                   (t2 (overlay-get o 'before-string))
                   (t3 (or (overlay-get o 'display)
-                          (buffer-substring (overlay-start o)
-                                            (overlay-end o))))
+                          (org-side-tree-visible-substring (overlay-start o)
+                                                           (overlay-end o))))
                   (t4 (overlay-get o 'after-string))
-                  (t5 (buffer-substring (overlay-end o) end))
+                  (t5 (org-side-tree-visible-substring (overlay-end o) end))
                   (inv (overlay-get o 'invisible)))
               (with-temp-buffer
                 (insert t1)
