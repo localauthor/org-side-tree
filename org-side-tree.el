@@ -382,7 +382,9 @@ When nil, headings are in `org-side-tree-heading-face'."
   "Kill Org-Side-Tree buffer associated with current buffer.
 This is added to `'kill-buffer-hook' for each base-buffer."
   (when-let* ((tree-buffer (org-side-tree-has-tree-p)))
-    (kill-buffer tree-buffer)))
+    (kill-buffer tree-buffer))
+  (setq org-side-tree-persistent
+        (default-value 'org-side-tree-persistent)))
 
 (defun org-side-tree-buffer-list ()
   "Return list of current Org-Side-Tree buffers."
