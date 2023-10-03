@@ -79,9 +79,20 @@
   :group 'org-side-tree
   :interactive nil
   (hl-line-mode)
-  (setq-local cursor-type 'bar)
   (setq tabulated-list-format [("Tree" 100)])
-  (set-window-fringes (selected-window) 1)
+  (org-side-tree-cursor-setup)
+  (add-hook 'window-configuration-change-hook #'org-side-tree-window-config nil t))
+
+(defun org-side-tree-cursor-setup ()
+  "Set `cursor-type' in tree-buffer, according to `org-side-tree-cursor'."
+  (if (bound-and-true-p org-side-tree-cursor)
+      (setq-local cursor-type 'org-side-tree-cursor)
+    (add-hook 'post-command-hook #'beginning-of-line nil t)
+    (setq-local cursor-type nil)))
+
+(defun org-side-tree-window-config ()
+  "Added to `window-configuration-change-hook' in `org-side-tree-mode'."
+  (set-window-fringes nil 1 1)
   (setq fringe-indicator-alist
         '((truncation nil nil))))
 
@@ -155,6 +166,18 @@ This includes `org-num' numbering."
 When nil, headings are in `org-side-tree-heading-face'."
   :type 'boolean)
 
+(defcustom org-side-tree-cursor t
+  "Cursor to use in tree-window buffers.
+Changes only take effect after toggling `org-side-tree-mode'.
+See for `cursor-type' for possible settings."
+  :type '(choice
+          (const :tag "Frame default" t)
+          (const :tag "Filled box" box)
+          (const :tag "Hollow cursor" hollow)
+          (const :tag "Vertical bar" bar)
+          (const :tag "Horizontal bar" hbar)
+          (const :tag "None" nil)))
+
 ;;;; Faces
 
 (defface org-side-tree-heading-face '((t (:inherit default)))
@@ -225,7 +248,6 @@ When nil, headings are in `org-side-tree-heading-face'."
                   (buffer-name))
       (org-side-tree-update))
     (pop-to-buffer tree-buffer)
-    (set-window-fringes (get-buffer-window tree-buffer) 1 1)
     (org-side-tree-go-to-heading heading)))
 
 ;;;###autoload
@@ -280,7 +302,7 @@ When nil, headings are in `org-side-tree-heading-face'."
                                           face default))))))))
 
 (defun org-side-tree-buffer-substring (beg end)
-  "Return visible portion of string from BEG to ENG."
+  "Return visible portion of string from BEG to END."
   (let ((string "")
         (props '(org-fold--spec-org-link-description-global
                  org-fold--spec-org-link-global
@@ -414,7 +436,6 @@ When nil, headings are in `org-side-tree-heading-face'."
     (with-selected-window tree-window
       (setq-local outline-regexp buffer-ol-regexp)
       (setq-local default-directory dd)
-      (set-window-fringes tree-window 1 1)
       (when org-side-tree-enable-folding
         (org-side-tree-get-fold-state))
       (setq header-line-format tree-head-line)
