@@ -113,8 +113,9 @@
 	  (const :tag "Right" right)
           (const :tag "Bottom" bottom)))
 
-(defcustom org-side-tree-narrow-on-jump nil
-  "When non-nil, source buffer is narrowed to subtree."
+(defcustom org-side-tree-persistent nil
+  "When non-nil, use a single buffer for all trees.
+When nil, each Org buffer will have its own tree-buffer."
   :type 'boolean)
 
 (defcustom org-side-tree-timer-delay .3
@@ -122,11 +123,6 @@
 Changes to this variable will not take effect if there are any
 live tree buffers. Kill and reopen tree buffers to see effects."
   :type 'number)
-
-(defcustom org-side-tree-persistent nil
-  "When non-nil, use a single buffer for all trees.
-When nil, each Org buffer will have its own tree-buffer."
-  :type 'boolean)
 
 (defcustom org-side-tree-recenter-position .25
   "Setting to determine heading position after `org-side-tree-jump'.
@@ -140,6 +136,10 @@ percentage of the screen space from the top."
 	  (const :tag "Middle" middle)
 	  (integer :tag "Line number")
 	  (float :tag "Percentage")))
+
+(defcustom org-side-tree-narrow-on-jump nil
+  "When non-nil, source buffer is narrowed to subtree."
+  :type 'boolean)
 
 (defcustom org-side-tree-enable-folding t
   "Enable folding in Org-Side-Tree buffers.
@@ -191,7 +191,7 @@ See for `cursor-type' for possible settings."
 (defvar org-side-tree-last-point nil
   "Cursor position from the last run of `post-command-hook'.")
 
-;;;; Functions
+;;;; Internal functions
 
 ;;;###autoload
 (defun org-side-tree ()
@@ -248,6 +248,39 @@ See for `cursor-type' for possible settings."
     (pulse-momentary-highlight-one-line)
     (org-side-tree-go-to-heading heading)))
 
+;;;;; Helpers
+
+(defun org-side-tree-buffer-list ()
+  "Return list of current Org-Side-Tree buffers."
+  (delq nil (append
+             (list (get-buffer "*Org-Side-Tree*"))
+             (mapcar
+              (lambda (buf)
+                (org-side-tree-has-tree-p buf))
+              (buffer-list)))))
+
+(defun org-side-tree-buffer-p ()
+  "Return t if current buffer is a tree-buffer."
+  (when (or (equal (buffer-name) "*Org-Side-Tree*")
+            (member (current-buffer) (org-side-tree-buffer-list)))
+    t))
+
+(defun org-side-tree-has-tree-p (&optional buffer)
+  "Return tree-buffer associated with BUFFER or current buffer."
+  (let ((buffer (or buffer
+                    (current-buffer))))
+    (get-buffer (format "<tree>%s" (buffer-name buffer)))))
+
+(defun org-side-tree-cleanup ()
+  "Kill Org-Side-Tree buffer associated with current buffer.
+This is added to `'kill-buffer-hook' for each base-buffer."
+  (when-let* ((tree-buffer (org-side-tree-has-tree-p)))
+    (kill-buffer tree-buffer))
+  (setq org-side-tree-persistent
+        (default-value 'org-side-tree-persistent)))
+
+;;;;; Headings
+
 (defun org-side-tree-get-headings ()
   "Return a list of outline headings."
   (let* ((heading-regexp (concat "^\\(?:"
@@ -284,6 +317,37 @@ See for `cursor-type' for possible settings."
                                    `(type org-side-tree
                                           buffer ,buffer
                                           face default))))))))
+
+(defun org-side-tree-heading-number ()
+  "Return the number of the current heading."
+  (let ((count 0)
+        (end (save-excursion
+               (unless (outline-on-heading-p)
+                 (outline-previous-visible-heading 1))
+               (point))))
+    (save-restriction
+      (widen)
+      (save-excursion
+        (goto-char (point-min))
+        ;; account for headline on first line
+        (when (and (bobp)
+                   (outline-on-heading-p))
+          (setq count (1+ count)))
+        (while (and (outline-next-heading)
+                    (<= (point) end))
+          (setq count (1+ count)))))
+    count))
+
+(defun org-side-tree-go-to-heading (n)
+  "Go to Nth heading."
+  (goto-char (point-min))
+  (dotimes (_x (1- n))
+    (outline-next-heading))
+  (when-let (ol (car (overlays-at (point))))
+    (when (overlay-get ol 'invisible)
+      (outline-previous-visible-heading 1)))
+  (beginning-of-line)
+  (hl-line-highlight))
 
 (defun org-side-tree-buffer-substring (beg end)
   "Return visible portion of string from BEG to END."
@@ -335,44 +399,7 @@ See for `cursor-type' for possible settings."
           overlays)
     text))
 
-(defun org-side-tree-set-timer ()
-  "Set `org-side-tree-timer-function'."
-  (unless (or org-side-tree-timer
-              (not org-side-tree-enable-auto-update))
-    (setq org-side-tree-timer
-          (run-with-idle-timer
-           org-side-tree-timer-delay t
-           #'org-side-tree-timer-function))))
-
-(defun org-side-tree-timer-function ()
-  "Timer for `org-side-tree-update'."
-  (if (not (org-side-tree-buffer-list))
-      (progn
-        (cancel-timer org-side-tree-timer)
-        (setq org-side-tree-timer nil))
-    (when (or (and org-side-tree-enable-auto-update
-                   (not (equal (point) org-side-tree-last-point))
-                   (or (derived-mode-p 'org-mode)
-                       (derived-mode-p 'outline-mode)
-                       outline-minor-mode)
-                   (not (org-side-tree-buffer-p))
-                   (or (and (default-value 'org-side-tree-persistent)
-                            (get-buffer-window "*Org-Side-Tree*"))
-                       (org-side-tree-has-tree-p)))
-              (member last-command '(outline-demote
-                                     outline-promote
-                                     outline-move-subtree-up
-                                     outline-move-subtree-down
-                                     org-metaleft
-                                     org-metaright
-                                     org-shiftleft
-                                     org-shiftright
-                                     org-shiftmetaright
-                                     org-shiftmetaleft
-                                     org-shiftup
-                                     org-shiftdown)))
-      (org-side-tree-update)
-      (setq org-side-tree-last-point (point)))))
+;;;;; Auto-update
 
 (defun org-side-tree-update ()
   "Update tree-buffer."
@@ -417,65 +444,46 @@ See for `cursor-type' for possible settings."
       (goto-char (point-min))
       (org-side-tree-go-to-heading heading))))
 
-(defun org-side-tree-cleanup ()
-  "Kill Org-Side-Tree buffer associated with current buffer.
-This is added to `'kill-buffer-hook' for each base-buffer."
-  (when-let* ((tree-buffer (org-side-tree-has-tree-p)))
-    (kill-buffer tree-buffer))
-  (setq org-side-tree-persistent
-        (default-value 'org-side-tree-persistent)))
+(defun org-side-tree-set-timer ()
+  "Set `org-side-tree-timer-function'."
+  (unless (or org-side-tree-timer
+              (not org-side-tree-enable-auto-update))
+    (setq org-side-tree-timer
+          (run-with-idle-timer
+           org-side-tree-timer-delay t
+           #'org-side-tree-timer-function))))
 
-(defun org-side-tree-buffer-list ()
-  "Return list of current Org-Side-Tree buffers."
-  (delq nil (append
-             (list (get-buffer "*Org-Side-Tree*"))
-             (mapcar
-              (lambda (buf)
-                (org-side-tree-has-tree-p buf))
-              (buffer-list)))))
+(defun org-side-tree-timer-function ()
+  "Timer for `org-side-tree-update'."
+  (if (not (org-side-tree-buffer-list))
+      (progn
+        (cancel-timer org-side-tree-timer)
+        (setq org-side-tree-timer nil))
+    (when (or (and org-side-tree-enable-auto-update
+                   (not (equal (point) org-side-tree-last-point))
+                   (or (derived-mode-p 'org-mode)
+                       (derived-mode-p 'outline-mode)
+                       outline-minor-mode)
+                   (not (org-side-tree-buffer-p))
+                   (or (and (default-value 'org-side-tree-persistent)
+                            (get-buffer-window "*Org-Side-Tree*"))
+                       (org-side-tree-has-tree-p)))
+              (member last-command '(outline-demote
+                                     outline-promote
+                                     outline-move-subtree-up
+                                     outline-move-subtree-down
+                                     org-metaleft
+                                     org-metaright
+                                     org-shiftleft
+                                     org-shiftright
+                                     org-shiftmetaright
+                                     org-shiftmetaleft
+                                     org-shiftup
+                                     org-shiftdown)))
+      (org-side-tree-update)
+      (setq org-side-tree-last-point (point)))))
 
-(defun org-side-tree-buffer-p ()
-  "Return t if current buffer is a tree-buffer."
-  (when (or (equal (buffer-name) "*Org-Side-Tree*")
-            (member (current-buffer) (org-side-tree-buffer-list)))
-    t))
-
-(defun org-side-tree-has-tree-p (&optional buffer)
-  "Return tree-buffer associated with BUFFER or current buffer."
-  (let ((buffer (or buffer
-                    (current-buffer))))
-    (get-buffer (format "<tree>%s" (buffer-name buffer)))))
-
-(defun org-side-tree-heading-number ()
-  "Return the number of the current heading."
-  (let ((count 0)
-        (end (save-excursion
-               (unless (outline-on-heading-p)
-                 (outline-previous-visible-heading 1))
-               (point))))
-    (save-restriction
-      (widen)
-      (save-excursion
-        (goto-char (point-min))
-        ;; account for headline on first line
-        (when (and (bobp)
-                   (outline-on-heading-p))
-          (setq count (1+ count)))
-        (while (and (outline-next-heading)
-                    (<= (point) end))
-          (setq count (1+ count)))))
-    count))
-
-(defun org-side-tree-go-to-heading (n)
-  "Go to Nth heading."
-  (goto-char (point-min))
-  (dotimes (_x (1- n))
-    (outline-next-heading))
-  (when-let (ol (car (overlays-at (point))))
-    (when (overlay-get ol 'invisible)
-      (outline-previous-visible-heading 1)))
-  (beginning-of-line)
-  (hl-line-highlight))
+;;;;; Folding
 
 (defun org-side-tree-get-fold-state ()
   "Register fold state of tree-buffer in `org-side-tree-fold-state'."
@@ -512,6 +520,8 @@ This is added to `'kill-buffer-hook' for each base-buffer."
             (outline-next-visible-heading 1))
         (forward-line)))
     (goto-char (point-min))))
+
+;;;;; Jump
 
 (defun org-side-tree-jump (&optional _)
   "Jump to headline."
@@ -553,6 +563,8 @@ This is added to `'kill-buffer-hook' for each base-buffer."
   (outline-show-subtree))
 
 ;;;; Commands
+
+;;;;; Toggles
 
 ;;;###autoload
 (defun org-side-tree-toggle ()
@@ -638,6 +650,8 @@ This is added to `'kill-buffer-hook' for each base-buffer."
         (setq-local org-side-tree-narrow-on-jump t)
         (message "Narrow-on-jump enabled locally")))))
 
+;;;;; Movement
+
 ;;;###autoload
 (defun org-side-tree-next-heading ()
   "Move to next heading."
@@ -671,7 +685,7 @@ This is added to `'kill-buffer-hook' for each base-buffer."
       (unless (org-before-first-heading-p)
         (org-narrow-to-subtree)))))
 
-;;;; Emulate macro
+;;;;; Emulate macro
 
 (defmacro org-side-tree-emulate (name doc fn arg error-fn)
   "Define function NAME to perform function FN in base-buffer.
