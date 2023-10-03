@@ -599,7 +599,7 @@ This is added to `'kill-buffer-hook' for each base-buffer."
       (beginning-of-line)
       (recenter-top-bottom)
       (pulse-momentary-highlight-one-line nil 'highlight)
-      (when  org-side-tree-narrow-on-jump
+      (when org-side-tree-narrow-on-jump
         (cond ((or
                 (derived-mode-p 'org-mode)
                 (derived-mode-p 'outline-mode))
@@ -609,6 +609,23 @@ This is added to `'kill-buffer-hook' for each base-buffer."
       (when (member this-command '(org-side-tree-previous-heading
                                    org-side-tree-next-heading))
         (select-window tree-window)))))
+
+(defun org-side-tree-toggle-narrow-on-jump ()
+  "Toggle `org-side-tree-narrow-on-jump' for the current buffer."
+  (interactive)
+  (let ((base-buffer (or (save-excursion
+                           (goto-char (point-min))
+                           (get-text-property (point) 'buffer))
+                         (current-buffer))))
+    (if (org-side-tree-buffer-p)
+        (with-current-buffer base-buffer
+          (org-side-tree-toggle-narrow-on-jump))
+      (if (bound-and-true-p org-side-tree-narrow-on-jump)
+          (progn
+            (setq-local org-side-tree-narrow-on-jump nil)
+            (message "Narrow-on-jump disabled locally"))
+        (setq-local org-side-tree-narrow-on-jump t)
+        (message "Narrow-on-jump enabled locally")))))
 
 (defun org-side-tree-goto-marker (marker)
   "Go to MARKER, widen if necessary."
