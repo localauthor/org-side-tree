@@ -30,14 +30,11 @@
 ;; Porter (@alphapapa) and `embark-live' from Embark by Omar Antolin
 ;; (@oantolin).
 
-
 ;; To install, place file on your load-path
 ;; and include this in your init file:
 ;; (require 'org-side-tree)
 
-
 ;; To use, Open an Org file and call M-x `org-side-tree'.
-
 
 ;; Regarding support for non-Org files:
 
@@ -248,21 +245,8 @@ See for `cursor-type' for possible settings."
                   (buffer-name))
       (org-side-tree-update))
     (pop-to-buffer tree-buffer)
+    (pulse-momentary-highlight-one-line)
     (org-side-tree-go-to-heading heading)))
-
-;;;###autoload
-(defun org-side-tree-toggle ()
-  "Toggle side-tree window."
-  (interactive)
-  (let* ((tree-buffer (get-buffer
-                       (if (default-value 'org-side-tree-persistent)
-                           "*Org-Side-Tree*"
-                         (format "<tree>%s"
-                                 (buffer-name)))))
-         (tree-window (get-buffer-window tree-buffer)))
-    (if tree-window
-        (delete-window tree-window)
-      (org-side-tree))))
 
 (defun org-side-tree-get-headings ()
   "Return a list of outline headings."
@@ -389,24 +373,6 @@ See for `cursor-type' for possible settings."
                                      org-shiftdown)))
       (org-side-tree-update)
       (setq org-side-tree-last-point (point)))))
-
-(defun org-side-tree-toggle-auto-update ()
-  "Toggle `org-side-tree-enable-auto-update' for the current buffer."
-  (interactive)
-  (let ((base-buffer (or (save-excursion
-                           (goto-char (point-min))
-                           (get-text-property (point) 'buffer))
-                         (current-buffer))))
-    (if (org-side-tree-buffer-p)
-        (with-current-buffer base-buffer
-          (org-side-tree-toggle-auto-update))
-      (if (bound-and-true-p org-side-tree-enable-auto-update)
-          (progn
-            (setq-local org-side-tree-enable-auto-update nil)
-            (message "Auto-update disabled locally"))
-        (setq-local org-side-tree-enable-auto-update t)
-        (org-side-tree-set-timer)
-        (message "Auto-update enabled locally")))))
 
 (defun org-side-tree-update ()
   "Update tree-buffer."
@@ -547,6 +513,81 @@ This is added to `'kill-buffer-hook' for each base-buffer."
         (forward-line)))
     (goto-char (point-min))))
 
+(defun org-side-tree-jump (&optional _)
+  "Jump to headline."
+  (interactive)
+  (let ((tree-window (selected-window))
+        (buffer (get-text-property (point) 'buffer))
+        (marker (get-text-property (point) 'marker))
+        (recenter-positions (list org-side-tree-recenter-position)))
+    (if (null marker)
+        (pop-to-buffer buffer)
+      (unless (buffer-live-p buffer)
+        (when (yes-or-no-p
+               "Base buffer has been killed. Kill org-side-tree window?")
+          (kill-buffer-and-window))
+        (keyboard-quit))
+      (pop-to-buffer buffer)
+      (org-side-tree-goto-marker marker)
+      (outline-show-subtree)
+      (beginning-of-line)
+      (recenter-top-bottom)
+      (pulse-momentary-highlight-one-line nil 'highlight)
+      (when org-side-tree-narrow-on-jump
+        (cond ((or
+                (derived-mode-p 'org-mode)
+                (derived-mode-p 'outline-mode))
+               (org-narrow-to-element))
+              (outline-minor-mode
+               (org-narrow-to-subtree))))
+      (when (member this-command '(org-side-tree-previous-heading
+                                   org-side-tree-next-heading))
+        (select-window tree-window)))))
+
+(defun org-side-tree-goto-marker (marker)
+  "Go to MARKER, widen if necessary."
+  (when (or (> marker (point-max))
+            (< marker (point-min)))
+    (widen))
+  (goto-char marker)
+  (outline-show-subtree))
+
+;;;; Commands
+
+;;;###autoload
+(defun org-side-tree-toggle ()
+  "Toggle side-tree window."
+  (interactive)
+  (let* ((tree-buffer (get-buffer
+                       (if (default-value 'org-side-tree-persistent)
+                           "*Org-Side-Tree*"
+                         (format "<tree>%s"
+                                 (buffer-name)))))
+         (tree-window (get-buffer-window tree-buffer)))
+    (if tree-window
+        (delete-window tree-window)
+      (org-side-tree))))
+
+;;;###autoload
+(defun org-side-tree-toggle-auto-update ()
+  "Toggle `org-side-tree-enable-auto-update' for the current buffer."
+  (interactive)
+  (let ((base-buffer (or (save-excursion
+                           (goto-char (point-min))
+                           (get-text-property (point) 'buffer))
+                         (current-buffer))))
+    (if (org-side-tree-buffer-p)
+        (with-current-buffer base-buffer
+          (org-side-tree-toggle-auto-update))
+      (if (bound-and-true-p org-side-tree-enable-auto-update)
+          (progn
+            (setq-local org-side-tree-enable-auto-update nil)
+            (message "Auto-update disabled locally"))
+        (setq-local org-side-tree-enable-auto-update t)
+        (org-side-tree-set-timer)
+        (message "Auto-update enabled locally")))))
+
+;;;###autoload
 (defun org-side-tree-toggle-folding ()
   "Toggle `org-side-tree-enable-folding' for the current buffer."
   (interactive)
@@ -579,37 +620,7 @@ This is added to `'kill-buffer-hook' for each base-buffer."
         (with-current-buffer (get-buffer (org-side-tree-has-tree-p))
           (org-side-tree-toggle-folding)))))))
 
-(defun org-side-tree-jump (&optional _)
-  "Jump to headline."
-  (interactive)
-  (let ((tree-window (selected-window))
-        (buffer (get-text-property (point) 'buffer))
-        (marker (get-text-property (point) 'marker))
-        (recenter-positions (list org-side-tree-recenter-position)))
-    (if (null marker)
-        (pop-to-buffer buffer)
-      (unless (buffer-live-p buffer)
-        (when (yes-or-no-p
-               "Base buffer has been killed. Kill org-side-tree window?")
-          (kill-buffer-and-window))
-        (keyboard-quit))
-      (pop-to-buffer buffer)
-      (org-side-tree-goto-marker marker)
-      (outline-show-subtree)
-      (beginning-of-line)
-      (recenter-top-bottom)
-      (pulse-momentary-highlight-one-line nil 'highlight)
-      (when org-side-tree-narrow-on-jump
-        (cond ((or
-                (derived-mode-p 'org-mode)
-                (derived-mode-p 'outline-mode))
-               (org-narrow-to-element))
-              (outline-minor-mode
-               (org-narrow-to-subtree))))
-      (when (member this-command '(org-side-tree-previous-heading
-                                   org-side-tree-next-heading))
-        (select-window tree-window)))))
-
+;;;###autoload
 (defun org-side-tree-toggle-narrow-on-jump ()
   "Toggle `org-side-tree-narrow-on-jump' for the current buffer."
   (interactive)
@@ -627,14 +638,7 @@ This is added to `'kill-buffer-hook' for each base-buffer."
         (setq-local org-side-tree-narrow-on-jump t)
         (message "Narrow-on-jump enabled locally")))))
 
-(defun org-side-tree-goto-marker (marker)
-  "Go to MARKER, widen if necessary."
-  (when (or (> marker (point-max))
-            (< marker (point-min)))
-    (widen))
-  (goto-char marker)
-  (outline-show-subtree))
-
+;;;###autoload
 (defun org-side-tree-next-heading ()
   "Move to next heading."
   (interactive)
@@ -650,6 +654,7 @@ This is added to `'kill-buffer-hook' for each base-buffer."
     (when org-side-tree-narrow-on-jump
       (org-narrow-to-subtree))))
 
+;;;###autoload
 (defun org-side-tree-previous-heading ()
   "Move to previous heading."
   (interactive)
