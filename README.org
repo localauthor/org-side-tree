@@ -8,7 +8,7 @@ This package presents a navigable, interactive tree-structured outline of the cu
 
 * Installation
 
-The easiest way to install is from [[https://melpa.org/#/org-side-bar][MELPA]].
+The easiest way to install is from [[https://melpa.org/#/org-side-tree][MELPA]].
 
 Add =org-side-tree.el= to your loadpath and include =(require 'org-side-tree)= in your init file.
 
