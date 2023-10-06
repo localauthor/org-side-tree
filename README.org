@@ -35,6 +35,8 @@ When non-nil, tree-buffer headings are fontified to match base-buffer. When nil,
 
 When non-nil, enable foldable headings in tree-buffers.
 
+Note: This package simply turns on =outline-minor-mode=, it does not enable or alter any outline-related settings or keybindings. So, to use =TAB= for outline-visibility cycling, add the following to your config: =(setq outline-minor-mode-cycle t)=.
+
 
 * Video Demo
 
