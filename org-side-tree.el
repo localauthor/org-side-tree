@@ -1,6 +1,6 @@
 ;;; org-side-tree.el --- Navigate Org outlines in side window tree          -*- lexical-binding: t; -*-
 
-;; Copyright (C) 2023  Grant Rosson
+;; Copyright (C) 2023 Grant Rosson
 
 ;; Author: Grant Rosson <https://github.com/localauthor>
 ;; Created: September 7, 2023
@@ -208,7 +208,8 @@ See for `cursor-type' for possible settings."
                       (format "<tree>%s" (buffer-name))))
          (tree-buffer (get-buffer tree-name))
          (heading (org-side-tree-heading-number))
-         (dd default-directory))
+         (dd default-directory)
+         (inv-spec buffer-invisibility-spec))
     (unless (buffer-live-p tree-buffer)
       (save-restriction
         (widen)
@@ -234,6 +235,7 @@ See for `cursor-type' for possible settings."
             ;; preserve org font-locking
             (setq-local outline-minor-mode-highlight nil)
             (outline-minor-mode 1))
+          (setq buffer-invisibility-spec inv-spec)
           (setq header-line-format tree-head-line)
           (setq mode-line-format tree-mode-line))))
     (org-side-tree-set-timer)
