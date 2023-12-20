@@ -59,47 +59,6 @@
 (require 'org)
 (require 'hl-line)
 
-(defvar org-side-tree-mode-map
-  (let ((map (make-sparse-keymap)))
-    (define-key map (kbd "<return>") #'push-button)
-    (define-key map (kbd "RET") #'push-button)
-    (define-key map (kbd "<mouse-1>") #'push-button)
-    (define-key map (kbd "n") #'org-side-tree-next-heading)
-    (define-key map (kbd "p") #'org-side-tree-previous-heading)
-    (make-composed-keymap map special-mode-map))
-  "Keymap for `org-side-tree-mode'.")
-
-(define-derived-mode org-side-tree-mode tabulated-list-mode "Org-Side-Tree"
-  "Mode for `org-side-tree'.
-
-\\{org-side-tree-mode-map}"
-  :group 'org-side-tree
-  :interactive nil
-  (hl-line-mode)
-  (setq tabulated-list-format [("Tree" 100)])
-  (org-side-tree-cursor-setup)
-  (add-hook 'window-configuration-change-hook #'org-side-tree-window-config nil t))
-
-(defun org-side-tree-cursor-setup ()
-  "Set `cursor-type' in tree-buffer, according to `org-side-tree-cursor'."
-  (if (bound-and-true-p org-side-tree-cursor)
-      (setq-local cursor-type 'org-side-tree-cursor)
-    (add-hook 'post-command-hook #'beginning-of-line nil t)
-    (setq-local cursor-type nil)))
-
-(defun org-side-tree-window-config ()
-  "Added to `window-configuration-change-hook' in `org-side-tree-mode'."
-  (set-window-parameter (selected-window) 'no-delete-other-windows org-side-tree-no-delete-other-windows)
-  (set-window-fringes nil 1 1)
-  (setq fringe-indicator-alist
-        '((truncation nil nil))))
-
-(define-button-type 'org-side-tree
-  'action 'org-side-tree-jump
-  'face 'org-side-tree-heading-face
-  'keymap org-side-tree-mode-map
-  'help-echo nil)
-
 ;;;; Customization
 
 (defgroup org-side-tree nil
@@ -178,8 +137,51 @@ See for `cursor-type' for possible settings."
 
 (defcustom org-side-tree-no-delete-other-windows nil
   "When non-nil tree-window will have `no-delete-other-windows' parameter.
-This parameter prevents the side-tree window from closing when calling `delete-other-windows'."
+Prevents the side-tree window from closing when calling `delete-other-windows'."
   :type 'boolean)
+
+;;;; Define Mode
+
+(defvar org-side-tree-mode-map
+  (let ((map (make-sparse-keymap)))
+    (define-key map (kbd "<return>") #'push-button)
+    (define-key map (kbd "RET") #'push-button)
+    (define-key map (kbd "<mouse-1>") #'push-button)
+    (define-key map (kbd "n") #'org-side-tree-next-heading)
+    (define-key map (kbd "p") #'org-side-tree-previous-heading)
+    (make-composed-keymap map special-mode-map))
+  "Keymap for `org-side-tree-mode'.")
+
+(define-derived-mode org-side-tree-mode tabulated-list-mode "Org-Side-Tree"
+  "Mode for `org-side-tree'.
+
+\\{org-side-tree-mode-map}"
+  :group 'org-side-tree
+  :interactive nil
+  (hl-line-mode)
+  (setq tabulated-list-format [("Tree" 100)])
+  (org-side-tree-cursor-setup)
+  (add-hook 'window-configuration-change-hook #'org-side-tree-window-config nil t))
+
+(defun org-side-tree-cursor-setup ()
+  "Set `cursor-type' in tree-buffer, according to `org-side-tree-cursor'."
+  (if (bound-and-true-p org-side-tree-cursor)
+      (setq-local cursor-type 'org-side-tree-cursor)
+    (add-hook 'post-command-hook #'beginning-of-line nil t)
+    (setq-local cursor-type nil)))
+
+(defun org-side-tree-window-config ()
+  "Added to `window-configuration-change-hook' in `org-side-tree-mode'."
+  (set-window-parameter (selected-window) 'no-delete-other-windows org-side-tree-no-delete-other-windows)
+  (set-window-fringes nil 1 1)
+  (setq fringe-indicator-alist
+        '((truncation nil nil))))
+
+(define-button-type 'org-side-tree
+  'action 'org-side-tree-jump
+  'face 'org-side-tree-heading-face
+  'keymap org-side-tree-mode-map
+  'help-echo nil)
 
 ;;;; Faces
 
