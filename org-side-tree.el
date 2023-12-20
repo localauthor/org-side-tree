@@ -89,6 +89,7 @@
 
 (defun org-side-tree-window-config ()
   "Added to `window-configuration-change-hook' in `org-side-tree-mode'."
+  (set-window-parameter (selected-window) 'no-delete-other-windows org-side-tree-no-delete-other-windows)
   (set-window-fringes nil 1 1)
   (setq fringe-indicator-alist
         '((truncation nil nil))))
@@ -174,6 +175,11 @@ See for `cursor-type' for possible settings."
           (const :tag "Vertical bar" bar)
           (const :tag "Horizontal bar" hbar)
           (const :tag "None" nil)))
+
+(defcustom org-side-tree-no-delete-other-windows nil
+  "When non-nil tree-window will have `no-delete-other-windows' parameter.
+This parameter prevents the side-tree window from closing when calling `delete-other-windows'."
+  :type 'boolean)
 
 ;;;; Faces
 
