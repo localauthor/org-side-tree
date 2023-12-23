@@ -50,7 +50,8 @@
 ;; To set this automatically for every elisp buffer, add the following lines
 ;; to your init file:
 
-;; (add-hook 'emacs-lisp-mode-hook (lambda () (setq-local outline-regexp ";;;\\(;* [^   \t\n]\\)")))
+;; (add-hook 'emacs-lisp-mode-hook
+;;     (lambda () (setq-local outline-regexp ";;;\\(;* [^   \t\n]\\)")))
 ;; (add-hook 'emacs-lisp-mode-hook 'outline-minor-mode)
 
 
@@ -247,6 +248,7 @@ Prevents the side-tree window from closing when calling `delete-other-windows'."
           (setq header-line-format tree-head-line)
           (setq mode-line-format tree-mode-line))))
     (org-side-tree-set-timer)
+    (switch-to-buffer (buffer-name))
     (display-buffer-in-side-window
      tree-buffer
      `((side . ,org-side-tree-display-side)))
