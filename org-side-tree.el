@@ -167,7 +167,7 @@ Prevents the side-tree window from closing when calling `delete-other-windows'."
 (defun org-side-tree-cursor-setup ()
   "Set `cursor-type' in tree-buffer, according to `org-side-tree-cursor'."
   (if (bound-and-true-p org-side-tree-cursor)
-      (setq-local cursor-type 'org-side-tree-cursor)
+      (setq-local cursor-type org-side-tree-cursor)
     (add-hook 'post-command-hook #'beginning-of-line nil t)
     (setq-local cursor-type nil)))
 
