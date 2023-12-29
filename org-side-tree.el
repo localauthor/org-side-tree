@@ -165,7 +165,6 @@ Prevents the side-tree window from closing when calling `delete-other-windows'."
   :interactive nil
   (hl-line-mode)
   (setq tabulated-list-format [("Tree" 100)])
-  (setq window-size-fixed (when org-side-tree-width 'width))
   (org-side-tree-cursor-setup)
   (add-hook 'window-configuration-change-hook #'org-side-tree-window-config nil t))
 
@@ -263,6 +262,7 @@ Prevents the side-tree window from closing when calling `delete-other-windows'."
                   (buffer-name))
       (org-side-tree-update))
     (pop-to-buffer tree-buffer)
+    (setq window-size-fixed (when org-side-tree-width 'width))
     (pulse-momentary-highlight-one-line)
     (org-side-tree-go-to-heading heading)))
 
