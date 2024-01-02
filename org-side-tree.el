@@ -1,6 +1,6 @@
 ;;; org-side-tree.el --- Navigate Org outlines in side window tree          -*- lexical-binding: t; -*-
 
-;; Copyright (C) 2023 Grant Rosson
+;; Copyright (C) 2023-2024 Grant Rosson
 
 ;; Author: Grant Rosson <https://github.com/localauthor>
 ;; Created: September 7, 2023
