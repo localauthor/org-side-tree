@@ -557,7 +557,6 @@ This is added to `'kill-buffer-hook' for each base-buffer."
         (keyboard-quit))
       (pop-to-buffer buffer)
       (org-side-tree-goto-marker marker)
-      (outline-show-subtree)
       (beginning-of-line)
       (recenter-top-bottom)
       (pulse-momentary-highlight-one-line nil 'highlight)
@@ -578,7 +577,7 @@ This is added to `'kill-buffer-hook' for each base-buffer."
             (< marker (point-min)))
     (widen))
   (goto-char marker)
-  (outline-show-subtree))
+  (outline-show-entry))
 
 ;;;; Commands
 
