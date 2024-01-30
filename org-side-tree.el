@@ -74,6 +74,10 @@
 	  (const :tag "Right" right)
           (const :tag "Bottom" bottom)))
 
+(defcustom org-side-tree-select t
+  "When non-nil, tree-window is selected when `org-side-tree' called."
+  :type 'boolean)
+
 (defcustom org-side-tree-width nil
   "When non-nil, sets width of side-tree window, in characters."
   :type 'integer)
@@ -261,7 +265,8 @@ Prevents the side-tree window from closing when calling `delete-other-windows'."
       (setq-local org-side-tree-persistent
                   (buffer-name))
       (org-side-tree-update))
-    (pop-to-buffer tree-buffer)
+    (when org-side-tree-select
+      (pop-to-buffer tree-buffer))
     (setq window-size-fixed (when org-side-tree-width 'width))
     (pulse-momentary-highlight-one-line)
     (org-side-tree-go-to-heading heading)))
