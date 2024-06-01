@@ -397,30 +397,36 @@ This is added to `'kill-buffer-hook' for each base-buffer."
 
 (defun org-side-tree-overlays-to-text (beg end)
   "Return line from BEG to END with overlays as text."
-  (let ((overlays (overlays-in beg end))
-        text)
-    (setq overlays (sort overlays (lambda (o1 o2)
-                                    (< (overlay-start o1)
-                                       (overlay-start o2)))))
-    (mapc (lambda (o)
-            (let ((t1 (org-side-tree-buffer-substring beg (overlay-start o)))
-                  (t2 (overlay-get o 'before-string))
-                  (t3 (or (overlay-get o 'display)
-                          (org-side-tree-buffer-substring (overlay-start o)
-                                                          (overlay-end o))))
-                  (t4 (overlay-get o 'after-string))
-                  (t5 (org-side-tree-buffer-substring (overlay-end o) end))
-                  (inv (overlay-get o 'invisible)))
-              (with-temp-buffer
-                (insert t1)
-                (unless inv
-                  (when t2 (insert t2))
-                  (insert t3)
-                  (when t4 (insert t4)))
-                (insert t5)
-                (setq text (buffer-string)))))
-          overlays)
-    text))
+  (let (prev-o-end text)
+    (when-let* ((overlays (delq nil
+                                (mapcar (lambda (o)
+                                          (unless (< (overlay-start o) beg)
+                                            o))
+                                        (overlays-in beg end))))
+                (overlays-sorted (sort overlays
+                                       (lambda (o1 o2)
+                                         (< (overlay-start o1)
+                                            (overlay-start o2))))))
+      (mapc (lambda (o)
+              (let* ((t1
+                      (org-side-tree-buffer-substring
+                       (or prev-o-end
+                           beg)
+                       (overlay-start o)))
+                     (inv (overlay-get o 'invisible))
+                     (t2 (unless inv
+                           (overlay-get o 'before-string)))
+                     (t3 (unless inv
+                           (or (overlay-get o 'display)
+                               (org-side-tree-buffer-substring
+                                (overlay-start o)
+                                (overlay-end o)))))
+                     (t4 (unless inv
+                           (overlay-get o 'after-string))))
+                (setq prev-o-end (overlay-end o))
+                (setq text (concat text t1 t2 t3 t4))))
+            overlays-sorted)
+      (concat text (org-side-tree-buffer-substring prev-o-end end)))))
 
 ;;;;; Auto-update
 
